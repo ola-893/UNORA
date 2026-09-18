@@ -68,7 +68,7 @@ forge script script/ManualDemo.s.sol:ManualDemo --root . \
 
 The deploy and manual-demo scripts reject chains other than 31337 and 10143. The manual demo requires a fresh position and the deployer as temporary writer. It intentionally uses a **synthetic proof hash**, not an income proof. Do not describe this step as verified income.
 
-Receipts are under `contracts/broadcast/<ScriptName>/10143/run-latest.json`; verify each receipt and contract bytecode before recording a testnet deployment. Derive Envio's future start block from the registry deployment receipt, not a simulated block number. No testnet deployment is claimed in this repository yet.
+The Monad testnet deployment is recorded in [deployments/monad-testnet.json](deployments/monad-testnet.json). Its five creation receipts succeeded, bytecode is present at every address, and the credit-line and repayment-vault wiring have been read back from chain. Derive Envio's future start block from the registry deployment block **63,709,337**. The testnet demo also completed with 100 pCOL collateral, 80 pUSD debt, an 80 pUSD limit, and a valid Tier 2 payment attestation. Its attestation is intentionally synthetic and is not verified income.
 
 ## Privacy and trust boundaries
 

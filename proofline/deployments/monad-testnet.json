@@ -1,0 +1,35 @@
+{
+  "network": "Monad Testnet",
+  "chainId": 10143,
+  "rpc": "https://testnet-rpc.monad.xyz",
+  "deployer": "0x506e724d7FDdbF91B6607d5Af0700d385D952f8a",
+  "deploymentStartBlock": 63709337,
+  "contracts": {
+    "collateralToken": "0x8DA26C2b004f5962c0846f57d193de12f2F62612",
+    "loanToken": "0x62E0EC7483E779DA0fCa9B701872e4af8a0FEd87",
+    "attestationRegistry": "0x7Da0baBc8F5690A61f8FC63Df40aA5aF7eb33F75",
+    "creditLine": "0xe91EF9C06aDD6b030bfb22cbf7dfF51904DEaC10",
+    "repaymentVault": "0x092C790d51CBf208a47edaB20d1e9c4C73737081"
+  },
+  "deploymentTransactions": [
+    "0x5b9d4d33940c2fa58e2561ee382a526702517b28f2dc6b08566372ae6922f8e0",
+    "0x6280e212360808c1849dfdbbf540b14d9ea83e3a2c0b65e09b6d5b586bf62d5d",
+    "0xb677a3b55b17dec7d5f95a35a3dab3781abfc8ab27c75607e90299e9e2b480b6",
+    "0xb52f0c33faaad561ce521465389e570bdea4656ac96c297398dc8ea35375106b",
+    "0x2dc495e23c6777ea61e8e5eef88f464d2af50d8f4297544e38fd4aa7520ee89f"
+  ],
+  "verified": {
+    "allDeploymentReceiptsSucceeded": true,
+    "allContractBytecodePresent": true,
+    "registryRootAndWriterMatchDeployer": true,
+    "creditLineWiringMatchesManifest": true,
+    "repaymentVaultWiringMatchesManifest": true,
+    "syntheticDemoStartBlock": 63709742,
+    "syntheticDemoReceiptsSucceeded": true,
+    "syntheticDemoCollateralUnits": 100000000,
+    "syntheticDemoDebtUnits": 80000000,
+    "syntheticDemoBorrowLimitUnits": 80000000,
+    "syntheticTier2PaymentAttestationValid": true
+  },
+  "notes": "The demo attestation is intentionally synthetic and does not verify income, Reclaim, CRE, zkTLS, or unique personhood."
+}
