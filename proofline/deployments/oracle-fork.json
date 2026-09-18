@@ -1,0 +1,14 @@
+{
+  "network": "Disposable localhost fork of Monad testnet; NOT a live registration",
+  "chainId": 31337,
+  "agentId": "31337:1879",
+  "verified": [
+    "register",
+    "recover pending mint",
+    "clear stale wallet when proof missing",
+    "rotate same identity with wallet consent",
+    "revoke and clear wallet",
+    "idempotent reconciliation"
+  ],
+  "rpcRunningAfterScript": false
+}
