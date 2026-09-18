@@ -1,0 +1,25 @@
+{
+  "name": "proofline",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "oracle": "tsx oracle-identity/register.ts",
+    "oracle:watch": "tsx oracle-identity/watch.ts",
+    "oracle:fork-demo": "tsx oracle-identity/fork-demo.ts",
+    "indexer:config": "tsx indexer/write-config.ts"
+  },
+  "dependencies": {
+    "agent0-sdk": "1.7.1",
+    "react": "19.3.0",
+    "viem": "2.56.8"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.1",
+    "@types/react": "19.3.0",
+    "tsx": "4.23.13",
+    "typescript": "5.9.3"
+  },
+  "engines": { "node": ">=22.9" }
+}

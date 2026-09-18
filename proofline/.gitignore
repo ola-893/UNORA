@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+contracts/lib/
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+*.log
+.local/
+node_modules/
+indexer/generated/
+indexer/config.yaml
