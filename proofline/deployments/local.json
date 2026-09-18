@@ -1,0 +1,154 @@
+{
+  "network": "disposable local Anvil; NOT Monad testnet",
+  "chainId": 31337,
+  "rpcRunningAfterScript": false,
+  "borrower": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "contracts": {
+    "collateralToken": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+    "loanToken": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
+    "attestationRegistry": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
+    "creditLine": "0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9",
+    "repaymentVault": "0xdc64a140aa3e981100a9beca4e685f962f0cf6c9"
+  },
+  "receipts": [
+    {
+      "hash": "0xb3da4d2ed72afff9ca811eb5d6ce63d0bc7465e6eb2007735200c27beaf8f6ca",
+      "block": 1,
+      "status": 1
+    },
+    {
+      "hash": "0x8679873d1a11bb5c21e2f5bdf82c8ab700690f5bc691f372a3e1f94fec9d3b19",
+      "block": 2,
+      "status": 1
+    },
+    {
+      "hash": "0x97e443b994c97b8cceee8d0e8063b58ddec5fdf499db4c061e9c573d97dda0de",
+      "block": 3,
+      "status": 1
+    },
+    {
+      "hash": "0x2f1e860f8275435fe8101b0d47725e8c670592f17d501766f908c5cf3494a667",
+      "block": 4,
+      "status": 1
+    },
+    {
+      "hash": "0x8089752b83b32557e2d9baab6d2954348a3e5a5056afe2a9b15f323d4b6779ec",
+      "block": 5,
+      "status": 1
+    },
+    {
+      "hash": "0xef0fcb3233cceeb54ba4a2b7a1262e1db10f7178dcac86b4b3d2c88c52aee3b5",
+      "block": 6,
+      "status": 1
+    },
+    {
+      "hash": "0x46227f349e17f76afaabe4e6412ad96af3d22f4d3df247bab0901c4d33f77c1e",
+      "block": 7,
+      "status": 1
+    },
+    {
+      "hash": "0xd86dba7b2fa6f3d4367838aeb731085281e396f6431e2adf52598ad24a4959c7",
+      "block": 8,
+      "status": 1
+    },
+    {
+      "hash": "0xee543b40d1c14fb6bad266ec6b7134870e5e36cf86a3894e2a7a88ce45393a48",
+      "block": 9,
+      "status": 1
+    },
+    {
+      "hash": "0x724a0bb4246488687c9cd2bcbb7b70b3995c4c9c557e8668dd7a8b5f96a43c61",
+      "block": 10,
+      "status": 1
+    },
+    {
+      "hash": "0x34999c61e09d08817e6735ea3ea3234da6cae3221bcf3e328dd356a6936c2868",
+      "block": 11,
+      "status": 1
+    },
+    {
+      "hash": "0xd2c8ddab1068dbf8f6ca6b1591febfe61a82aaf80f973661ae022d998cc74bea",
+      "block": 12,
+      "status": 1
+    },
+    {
+      "hash": "0xa1baffefefedb43cff4554c173c50744a937f2ee689f666027ff37a665661cb6",
+      "block": 13,
+      "status": 1
+    },
+    {
+      "hash": "0xdd9ae6d49dcc701d1b45a855b9277a32803e58fab712916bd16725dd67a4e878",
+      "block": 14,
+      "status": 1
+    },
+    {
+      "hash": "0xf2bc04e2b4c3bd3de060928d9544470871f1c5bdaf9700318e1b82f534b397b6",
+      "block": 15,
+      "status": 1
+    },
+    {
+      "hash": "0x5f19b55028f5900b2b3041e2a6cea674e9b3a2623fbbe34caf6bd5e4d1cda56f",
+      "block": 16,
+      "status": 1
+    },
+    {
+      "hash": "0xf5c47fd393e083151d0fbf47eaa624fa1ddabc07881e05d3825484cec568f21d",
+      "block": 17,
+      "status": 1
+    },
+    {
+      "hash": "0xbacd66a835d69576702a0ac2fef7fd2ad90f76ef86e3a11e2399f89e249228f4",
+      "block": 18,
+      "status": 1
+    },
+    {
+      "hash": "0x320eb814520306f8d0747dab39b211a24a5469a4f46847fbd7d9cfac031aeb66",
+      "block": 19,
+      "status": 1
+    },
+    {
+      "hash": "0x8eb6669371e83c4ba2c2cd815046db741e91347618fc74ee1822d8803def15c8",
+      "block": 21,
+      "status": 1
+    },
+    {
+      "hash": "0xb05bd19180422a20bb30ada553091fb70271d454dacba81317caf5a70968914a",
+      "block": 22,
+      "status": 1
+    },
+    {
+      "hash": "0x9eaa3de0d2736e6d33836b0920ee6acf1bf2801aab1865d04fbcc902d0cd1208",
+      "block": 23,
+      "status": 1
+    },
+    {
+      "hash": "0x06c071c95d28df7d61b1646e6a53014504c14939821808be8a7c894742f7b152",
+      "block": 24,
+      "status": 1
+    },
+    {
+      "hash": "0x12e7a90ae8308ad307a54c7649883ab7b190422809bc500b0c9066f9441429e8",
+      "block": 25,
+      "status": 1
+    },
+    {
+      "hash": "0x000556dc21e770362497adb393e015c06f3d78b4adba16f652479e9446014718",
+      "block": 26,
+      "status": 1
+    }
+  ],
+  "verified": {
+    "collateralUnits": 100,
+    "baseLimit": 50,
+    "boostedLimit": 80,
+    "borrowedUnits": 80,
+    "overBorrowReverted": true,
+    "collateralUntouchedByBorrow": true,
+    "oracleRotationRevocationRecovery": true,
+    "expiryReturnsLimitTo50": true,
+    "expiryPreserves80Debt": true,
+    "delegatedRepayment": 10,
+    "finalDebt": 70,
+    "repaymentCapAndRevocation": true
+  }
+}
