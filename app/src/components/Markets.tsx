@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { motion, useInView } from 'motion/react';
 import { ArrowRight } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
+import { ScrollHeader } from '@/components/animations';
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -38,20 +39,15 @@ export default function Markets({ ready }: { ready: boolean }) {
   return (
     <section ref={ref} id="markets" className="py-10 sm:py-16 px-4 sm:px-6 lg:px-10">
       <div className="max-w-7xl mx-auto rounded-3xl bg-white/70 backdrop-blur-md border border-white/50 shadow-[0_8px_40px_rgba(124,58,237,0.06)] p-8 sm:p-12">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={show ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-          transition={{ duration: 0.7, ease }}
-          className="flex flex-col sm:flex-row sm:items-end sm:justify-between mb-10"
-        >
-          <div>
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between mb-10">
+          <ScrollHeader>
             <span className="font-mono text-[10px] uppercase tracking-[0.3em] mb-3 block" style={{ color: colors.textMuted }}>
               Markets
             </span>
             <h2 className="font-serif text-3xl sm:text-4xl lg:text-5xl tracking-tight leading-[1.1]" style={{ color: colors.text }}>
               Earn yield. Deploy capital.
             </h2>
-          </div>
+          </ScrollHeader>
           <a
             href="#"
             className="mt-4 sm:mt-0 font-sans text-sm flex items-center gap-1.5 transition-colors"
@@ -60,7 +56,7 @@ export default function Markets({ ready }: { ready: boolean }) {
             View all markets
             <ArrowRight className="w-3.5 h-3.5" />
           </a>
-        </motion.div>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {markets.map((market, i) => (

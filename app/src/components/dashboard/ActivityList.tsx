@@ -9,6 +9,7 @@ import {
   groupFor,
   recentActivity,
   tokenAccent,
+  useLiveActivity,
   type ActivityGroupLabel,
 } from '@/lib/activity';
 
@@ -26,7 +27,8 @@ const RECENT_COUNT = 5;
  */
 export default function ActivityList() {
   const colors = useTheme();
-  const events = recentActivity(RECENT_COUNT);
+  const live = useLiveActivity();
+  const events = recentActivity(live, RECENT_COUNT);
 
   const groups: { label: ActivityGroupLabel; items: typeof events }[] = GROUP_ORDER.map(
     (label) => ({ label, items: events.filter((event) => groupFor(event.age) === label) }),
@@ -98,7 +100,8 @@ export default function ActivityList() {
                 const accent = event.symbol ? tokenAccent(event.symbol) : meta.color;
                 return (
                   <motion.div
-                    key={`${event.kind}-${event.age}`}
+                    key={event.id}
+                    layout
                     initial={{ opacity: 0, x: -8 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.4, delay: 0.45 + (groupOffsets[gi] + ii) * 0.04, ease }}

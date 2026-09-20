@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { motion, useInView, AnimatePresence } from 'motion/react';
 import { Plus, Minus } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
+import { ScrollHeader } from '@/components/animations';
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -88,12 +89,7 @@ export default function Faq({ ready }: { ready: boolean }) {
     <section ref={ref} id="faq" className="py-10 sm:py-16 px-4 sm:px-6 lg:px-10">
       <div className="max-w-7xl mx-auto rounded-3xl bg-white/70 backdrop-blur-md border border-white/50 shadow-[0_8px_40px_rgba(124,58,237,0.06)] p-8 sm:p-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={show ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-            transition={{ duration: 0.7, ease }}
-            className="lg:col-span-4"
-          >
+          <ScrollHeader className="lg:col-span-4">
             <span className="font-mono text-[10px] uppercase tracking-[0.3em] mb-3 block" style={{ color: colors.textMuted }}>
               FAQs
             </span>
@@ -104,7 +100,7 @@ export default function Faq({ ready }: { ready: boolean }) {
               Can't find what you're looking for?{' '}
               <a href="#" className="underline hover:text-[#111111] transition-colors">Reach out</a>.
             </p>
-          </motion.div>
+          </ScrollHeader>
 
           <div className="lg:col-span-8">
             {faqs.map((faq, i) => (

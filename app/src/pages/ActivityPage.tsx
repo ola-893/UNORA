@@ -4,7 +4,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import PageHeader from '@/components/dashboard/PageHeader';
 import TokenIcon from '@/components/TokenIcon';
-import { ACTIVITY, KIND_META, tokenAccent, type ActivityKind } from '@/lib/activity';
+import { KIND_META, tokenAccent, useLiveActivity, type ActivityKind } from '@/lib/activity';
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -22,17 +22,18 @@ const FILTERS: { key: ActivityKind | 'all'; label: string }[] = [
 export default function ActivityPage() {
   const colors = useTheme();
   const [filter, setFilter] = useState<ActivityKind | 'all'>('all');
+  const live = useLiveActivity();
 
   const visible = useMemo(
-    () => (filter === 'all' ? ACTIVITY : ACTIVITY.filter((e) => e.kind === filter)),
-    [filter],
+    () => (filter === 'all' ? live : live.filter((e) => e.kind === filter)),
+    [filter, live],
   );
 
   const counts = useMemo(() => {
     const map = new Map<ActivityKind, number>();
-    for (const event of ACTIVITY) map.set(event.kind, (map.get(event.kind) ?? 0) + 1);
+    for (const event of live) map.set(event.kind, (map.get(event.kind) ?? 0) + 1);
     return map;
-  }, []);
+  }, [live]);
 
   return (
     <DashboardLayout>
@@ -51,7 +52,7 @@ export default function ActivityPage() {
           >
             <div className="p-4 rounded-2xl border shadow-sm" style={{ borderColor: colors.border, backgroundColor: 'rgba(255,255,255,0.6)' }}>
               <div className="font-mono text-[9px] uppercase tracking-widest mb-1" style={{ color: colors.textMuted }}>Events recorded</div>
-              <div className="font-serif text-xl font-semibold" style={{ color: colors.text }}>{ACTIVITY.length}</div>
+              <div className="font-serif text-xl font-semibold" style={{ color: colors.text }}>{live.length}</div>
             </div>
             <div className="p-4 rounded-2xl border shadow-sm" style={{ borderColor: colors.border, backgroundColor: 'rgba(255,255,255,0.6)' }}>
               <div className="font-mono text-[9px] uppercase tracking-widest mb-1" style={{ color: colors.textMuted }}>Stream ticks</div>
@@ -72,7 +73,7 @@ export default function ActivityPage() {
           >
             {FILTERS.map((option) => {
               const isActive = filter === option.key;
-              const count = option.key === 'all' ? ACTIVITY.length : counts.get(option.key) ?? 0;
+              const count = option.key === 'all' ? live.length : counts.get(option.key) ?? 0;
               return (
                 <button
                   key={option.key}
@@ -114,7 +115,7 @@ export default function ActivityPage() {
                 const accent = event.symbol ? tokenAccent(event.symbol) : meta.color;
                 return (
                   <motion.div
-                    key={`${event.kind}-${event.age}`}
+                    key={event.id}
                     layout
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}

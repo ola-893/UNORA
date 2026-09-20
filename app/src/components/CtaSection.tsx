@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion, useInView } from 'motion/react';
 import { ArrowRight } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
+import { ScrollHeader } from '@/components/animations';
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -15,15 +16,14 @@ export default function CtaSection({ ready }: { ready: boolean }) {
   return (
     <section ref={ref} className="py-24 sm:py-32 px-6 sm:px-10 lg:px-16">
       <div className="max-w-4xl mx-auto text-center">
-        <motion.h2
-          initial={{ opacity: 0, y: 40 }}
-          animate={show ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
-          transition={{ duration: 0.8, delay: show ? 0.1 : 0, ease }}
-          className="font-serif text-3xl sm:text-4xl lg:text-5xl tracking-tight leading-[1.1] mb-5"
-          style={{ color: colors.text }}
-        >
-          Your reputation is your collateral.
-        </motion.h2>
+        <ScrollHeader className="mb-5" rise={56} drift={-32}>
+          <h2
+            className="font-serif text-3xl sm:text-4xl lg:text-5xl tracking-tight leading-[1.1]"
+            style={{ color: colors.text }}
+          >
+            Your reputation is your collateral.
+          </h2>
+        </ScrollHeader>
 
         <motion.p
           initial={{ opacity: 0, y: 20 }}

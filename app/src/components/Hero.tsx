@@ -1,8 +1,11 @@
 import { useRef, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { motion, useScroll, useTransform } from 'motion/react';
+import { motion, useScroll, useTransform, AnimatePresence } from 'motion/react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { POSITION_TONES } from '@/lib/position';
+import { KIND_META, tokenAccent, useLiveActivity } from '@/lib/activity';
+import { useAnimatedNumber } from '@/hooks/useAnimatedNumber';
+import TokenIcon from '@/components/TokenIcon';
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -150,10 +153,46 @@ function AnimatedBar({ width, delay, color, ready }: { width: string; delay: num
 
 /* -------------------------------------------------------------------------- */
 /*  Card contents — shared by both arrangements                               */
+/*                                                                            */
+/*  All bodies pull from the live activity stream (lib/activity.ts) with      */
+/*  count-up numbers, so the hero's five cards tell one consistent story      */
+/*  that keeps moving while you watch.                                        */
 /* -------------------------------------------------------------------------- */
 
 function ScoreCardBody({ ready }: { ready: boolean }) {
   const colors = useTheme();
+  const live = useLiveActivity();
+  // Score drifts up with every score event in the shared feed.
+  const scoreEvents = live.filter((event) => event.kind === 'score').length;
+  // A slow demonstration drift (+1pt/min, capped) keeps the score moving between
+  // score events landing in the feed.
+  const [drift, setDrift] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setDrift((d) => Math.min(d + 1, 15)), 60_000);
+    return () => clearInterval(timer);
+  }, []);
+  const scoreValue = 72 + scoreEvents + drift;
+  // Delays start after the card's float-in finishes (~2s); `paused: !ready` stops the
+  // count-up being spent invisibly behind the loading screen.
+  const score = useAnimatedNumber(scoreValue, {
+    duration: 1.4,
+    delay: ready ? 2.0 : 0,
+    paused: !ready,
+    format: (v) => String(Math.round(v)),
+  });
+  const pts = useAnimatedNumber(4 + scoreEvents + drift, {
+    duration: 1.2,
+    delay: ready ? 2.2 : 0,
+    paused: !ready,
+    format: (v) => `+${Math.round(v)} this week`,
+  });
+  const barWidth = useAnimatedNumber(scoreValue, {
+    duration: 1.4,
+    delay: ready ? 2.0 : 0,
+    paused: !ready,
+    format: (v) => `${Math.round(v)}%`,
+  });
+
   return (
     <div className="p-5">
       <div className="flex items-center justify-between mb-4">
@@ -168,19 +207,19 @@ function ScoreCardBody({ ready }: { ready: boolean }) {
         </motion.div>
       </div>
       <div className="flex items-end gap-2 mb-1">
-        <span className="font-serif text-4xl font-semibold" style={{ color: colors.text }}>72</span>
+        <span className="font-serif text-4xl font-semibold tabular-nums" style={{ color: colors.text }}>{score}</span>
         <motion.span
-          className="font-sans text-xs font-medium text-green-500 mb-1"
+          className="font-sans text-xs font-medium text-green-500 mb-1 tabular-nums"
           initial={{ opacity: 0, x: -5 }}
           animate={ready ? { opacity: 1, x: 0 } : { opacity: 0, x: -5 }}
           transition={{ duration: 0.4, delay: 1.5, ease }}
         >
-          +4 this week
+          {pts}
         </motion.span>
       </div>
       <div className="font-mono text-[9px] mb-4" style={{ color: colors.textMuted }}>Top 28% of borrowers</div>
       <div className="h-2 rounded-full bg-purple-100 overflow-hidden">
-        <AnimatedBar width="72%" delay={1.3} color="linear-gradient(90deg, #7C3AED, #A78BFA)" ready={ready} />
+        <AnimatedBar width={barWidth} delay={2.0} color="linear-gradient(90deg, #7C3AED, #A78BFA)" ready={ready} />
       </div>
       <div className="flex justify-between mt-1.5">
         <span className="font-mono text-[8px]" style={{ color: colors.textMuted }}>0</span>
@@ -192,6 +231,38 @@ function ScoreCardBody({ ready }: { ready: boolean }) {
 
 function LendingCardBody({ ready }: { ready: boolean }) {
   const colors = useTheme();
+  const live = useLiveActivity();
+  // Deposits in the feed grow the balance; interest accrues second by second.
+  const depositCount = live.filter((event) => event.kind === 'deposit').length;
+  const [mountedAt] = useState(() => Date.now());
+  const [interest, setInterest] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      // Demonstration accrual at a visible rate (~$0.60/min — a cent a second).
+      // Real per-second compounding of 4.2% APY moves the fifth decimal place —
+      // mathematically honest but reads as a frozen number at 2dp.
+      const secondsHeld = (Date.now() - mountedAt) / 1000;
+      setInterest(secondsHeld * 0.01);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [mountedAt]);
+
+  const balance = useAnimatedNumber(4250 + depositCount * 500 + interest, {
+    duration: 1.1,
+    delay: ready ? 2.1 : 0,
+    paused: !ready,
+    format: (v) =>
+      `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+  });
+  const earned = useAnimatedNumber(178.5 + interest, {
+    duration: 1.1,
+    delay: ready ? 2.3 : 0,
+    paused: !ready,
+    format: (v) =>
+      `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+  });
+
   return (
     <div className="p-5">
       <div className="flex items-center justify-between mb-3">
@@ -205,15 +276,12 @@ function LendingCardBody({ ready }: { ready: boolean }) {
           Earning
         </motion.span>
       </div>
-      <motion.div
-        className="font-serif text-2xl font-semibold mb-0.5"
+      <div
+        className="font-serif text-2xl font-semibold mb-0.5 tabular-nums"
         style={{ color: colors.text }}
-        initial={{ opacity: 0 }}
-        animate={ready ? { opacity: 1 } : { opacity: 0 }}
-        transition={{ duration: 0.5, delay: 1.4, ease }}
       >
-        $4,250.00
-      </motion.div>
+        {balance}
+      </div>
       <div className="font-mono text-[9px] mb-4" style={{ color: colors.textMuted }}>in General Pool</div>
       <div className="flex items-center justify-between p-3 rounded-xl bg-purple-50">
         <div>
@@ -222,7 +290,7 @@ function LendingCardBody({ ready }: { ready: boolean }) {
         </div>
         <div className="text-right">
           <div className="font-mono text-[8px] uppercase tracking-widest" style={{ color: colors.textMuted }}>Earned</div>
-          <div className="font-serif text-lg font-semibold" style={{ color: colors.text }}>$178.50</div>
+          <div className="font-serif text-lg font-semibold tabular-nums" style={{ color: colors.text }}>{earned}</div>
         </div>
       </div>
     </div>
@@ -231,6 +299,37 @@ function LendingCardBody({ ready }: { ready: boolean }) {
 
 function ActivityCardBody({ ready }: { ready: boolean }) {
   const colors = useTheme();
+  const live = useLiveActivity();
+
+  const streamCount = live.filter((event) => event.kind === 'stream').length;
+  const depositCount = live.filter((event) => event.kind === 'deposit').length;
+  const loanCount = live.filter((event) => event.kind === 'loan').length;
+
+  const score = useAnimatedNumber(72 + live.filter((e) => e.kind === 'score').length, {
+    duration: 1.4,
+    delay: ready ? 1.2 : 0,
+    paused: !ready,
+    format: (v) => String(Math.round(v)),
+  });
+  const loaned = useAnimatedNumber(8200 + loanCount * 500, {
+    duration: 1.2,
+    delay: ready ? 1.3 : 0,
+    paused: !ready,
+    format: (v) => `$${(v / 1000).toFixed(1)}k`,
+  });
+  const deposited = useAnimatedNumber(4200 + depositCount * 500, {
+    duration: 1.2,
+    delay: ready ? 1.4 : 0,
+    paused: !ready,
+    format: (v) => `$${(v / 1000).toFixed(1)}k`,
+  });
+  const streams = useAnimatedNumber(3 + streamCount, {
+    duration: 0.9,
+    delay: ready ? 1.5 : 0,
+    paused: !ready,
+    format: (v) => String(Math.round(v)),
+  });
+
   return (
     <div className="p-4 sm:p-6">
       {/* Header. "Filters" is dropped below `sm` — at a ~290px card the title, the live badge
@@ -266,13 +365,13 @@ function ActivityCardBody({ ready }: { ready: boolean }) {
         <span className="font-sans text-xs truncate" style={{ color: colors.textMuted }}>Search in activities...</span>
       </motion.div>
 
-      {/* Stats row */}
+      {/* Stats row — values tick up from the live feed. */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 mb-4 sm:mb-5">
         {[
-          { label: 'Score', value: '72', sub: '+4', subColor: '#22C55E' },
-          { label: 'Loaned', value: '$8.2k', sub: '4.2% APR', subColor: colors.textMuted },
-          { label: 'Deposited', value: '$4.2k', sub: '+4.2%', subColor: '#22C55E' },
-          { label: 'Streams', value: '3', sub: 'active', subColor: colors.textMuted },
+          { label: 'Score', value: score, sub: '+4', subColor: '#22C55E' },
+          { label: 'Loaned', value: loaned, sub: '4.2% APR', subColor: colors.textMuted },
+          { label: 'Deposited', value: deposited, sub: '+4.2%', subColor: '#22C55E' },
+          { label: 'Streams', value: streams, sub: 'active', subColor: colors.textMuted },
         ].map((stat, i) => (
           <motion.div
             key={stat.label}
@@ -282,42 +381,53 @@ function ActivityCardBody({ ready }: { ready: boolean }) {
             transition={{ duration: 0.5, delay: 1.3 + i * 0.08, ease }}
           >
             <div className="font-mono text-[7px] uppercase tracking-widest mb-1" style={{ color: colors.textMuted }}>{stat.label}</div>
-            <div className="font-serif text-xl font-semibold" style={{ color: colors.text }}>{stat.value}</div>
+            <div className="font-serif text-xl font-semibold tabular-nums" style={{ color: colors.text }}>{stat.value}</div>
             <div className="font-mono text-[7px]" style={{ color: stat.subColor }}>{stat.sub}</div>
           </motion.div>
         ))}
       </div>
 
-      {/* Activity list */}
+      {/* Activity list — new events slide in at the top as the feed ticks. */}
       <div className="space-y-2.5">
-        {[
-          { type: 'Stream tick', detail: 'Repayment stream #12', amount: '+0.5 pts', time: '2m ago', color: '#22C55E', icon: '→' },
-          { type: 'Repayment', detail: 'Loan #7 — $45.00', amount: '$45.00', time: '1h ago', color: '#7C3AED', icon: '↩' },
-          { type: 'Score update', detail: 'Milestone reached', amount: '+2 pts', time: '3h ago', color: '#22C55E', icon: '★' },
-          { type: 'Deposit', detail: 'General Pool', amount: '$500.00', time: '1d ago', color: '#7C3AED', icon: '↓' },
-        ].map((item, i) => (
-          <motion.div
-            key={i}
-            className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white/40 border border-white/30"
-            initial={{ opacity: 0, x: -15 }}
-            animate={ready ? { opacity: 1, x: 0 } : { opacity: 0, x: -15 }}
-            transition={{ duration: 0.4, delay: 1.6 + i * 0.1, ease }}
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0" style={{ backgroundColor: item.color + '15', color: item.color }}>
-                {item.icon}
-              </div>
-              <div className="min-w-0">
-                <div className="font-sans text-xs font-medium truncate" style={{ color: colors.text }}>{item.type}</div>
-                <div className="font-mono text-[9px] truncate" style={{ color: colors.textMuted }}>{item.detail}</div>
-              </div>
-            </div>
-            <div className="text-right shrink-0">
-              <div className="font-mono text-xs font-medium" style={{ color: item.color }}>{item.amount}</div>
-              <div className="font-mono text-[8px]" style={{ color: colors.textMuted }}>{item.time}</div>
-            </div>
-          </motion.div>
-        ))}
+        <AnimatePresence initial={false} mode="popLayout">
+          {live.slice(0, 4).map((event, i) => {
+            const meta = KIND_META[event.kind];
+            const Icon = meta.Icon;
+            const accent = event.symbol ? tokenAccent(event.symbol) : meta.color;
+            const isUp = !event.amount.startsWith('-');
+            return (
+              <motion.div
+                key={event.id}
+                layout
+                className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white/40 border border-white/30"
+                initial={{ opacity: 0, y: -14, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
+                transition={{ duration: 0.45, delay: ready ? Math.max(1.6 - i * 0.35, 0) + i * 0.08 : 0, ease }}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  {/* Real token marks where the event moved an asset — the same badges the
+                      Borrow and Deposit tables use — and the kind's icon otherwise. */}
+                  {event.symbol ? (
+                    <TokenIcon symbol={event.symbol} color={accent} size={32} />
+                  ) : (
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0" style={{ backgroundColor: accent + '15', color: accent }}>
+                      <Icon className="w-4 h-4" strokeWidth={1.5} />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <div className="font-sans text-xs font-medium truncate" style={{ color: colors.text }}>{event.name}</div>
+                    <div className="font-mono text-[9px] truncate" style={{ color: colors.textMuted }}>{event.detail}</div>
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="font-mono text-xs font-medium tabular-nums" style={{ color: isUp ? '#22C55E' : accent }}>{event.amount}</div>
+                  <div className="font-mono text-[8px]" style={{ color: colors.textMuted }}>{event.time}</div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
       </div>
     </div>
   );
@@ -325,25 +435,52 @@ function ActivityCardBody({ ready }: { ready: boolean }) {
 
 function LoanCardBody({ ready }: { ready: boolean }) {
   const colors = useTheme();
+  const live = useLiveActivity();
+  // Repayments shrink what's left of the loan; the bar tracks the feed.
+  const repaidCount = live.filter((event) => event.kind === 'repayment').length;
+  // The repayment stream drips continuously (~$1.20/min) on top of the repayment
+  // events landing in the feed, so the bar is never fully still.
+  const [dripSeconds, setDripSeconds] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setDripSeconds((s) => s + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  const repaidValue = 5330 + repaidCount * 45 + dripSeconds * 0.02;
+  const repaid = useAnimatedNumber(repaidValue, {
+    duration: 1.2,
+    delay: ready ? 2.2 : 0,
+    paused: !ready,
+    format: (v) =>
+      `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+  });
+  const remaining = useAnimatedNumber(8200 - repaidValue, {
+    duration: 1.2,
+    delay: ready ? 2.2 : 0,
+    paused: !ready,
+    format: (v) =>
+      `$${Math.max(v, 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+  });
+  const pct = Math.min((repaidValue / 8200) * 100, 100);
+
   return (
     <div className="p-5">
       <div className="flex items-center justify-between mb-3">
         <span className="font-mono text-[9px] uppercase tracking-widest" style={{ color: colors.textMuted }}>Active Loan</span>
         <span className="font-mono text-[9px] px-2 py-0.5 rounded-full bg-green-100 text-green-600">Streaming</span>
       </div>
-      <div className="font-serif text-2xl font-semibold mb-0.5" style={{ color: colors.text }}>$8,200.00</div>
+      <div className="font-serif text-2xl font-semibold mb-0.5 tabular-nums" style={{ color: colors.text }}>$8,200.00</div>
       <div className="font-mono text-[9px] mb-4" style={{ color: colors.textMuted }}>4.2% APR · 35% collateral</div>
       <div className="space-y-2.5">
         <div className="flex justify-between items-center">
           <span className="font-sans text-[10px]" style={{ color: colors.textMuted }}>Repaid</span>
-          <span className="font-mono text-[10px] font-medium" style={{ color: colors.text }}>$5,330.00</span>
+          <span className="font-mono text-[10px] font-medium tabular-nums" style={{ color: colors.text }}>{repaid}</span>
         </div>
         <div className="h-1.5 rounded-full bg-purple-100 overflow-hidden">
-          <AnimatedBar width="65%" delay={1.5} color="#4ADE80" ready={ready} />
+          <AnimatedBar width={`${pct}%`} delay={2.2} color="#4ADE80" ready={ready} />
         </div>
         <div className="flex justify-between items-center">
           <span className="font-sans text-[10px]" style={{ color: colors.textMuted }}>Remaining</span>
-          <span className="font-mono text-[10px] font-medium" style={{ color: colors.text }}>$2,870.00</span>
+          <span className="font-mono text-[10px] font-medium tabular-nums" style={{ color: colors.text }}>{remaining}</span>
         </div>
       </div>
     </div>
@@ -352,22 +489,40 @@ function LoanCardBody({ ready }: { ready: boolean }) {
 
 function YieldCardBody({ ready }: { ready: boolean }) {
   const colors = useTheme();
+  const live = useLiveActivity();
+  // Total yield climbs with deposits in the feed; bars mirror the weekly series.
+  const depositCount = live.filter((event) => event.kind === 'deposit').length;
+  // Yield accrues continuously (~$7/min) on top of the deposit events landing.
+  const [dripSeconds, setDripSeconds] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setDripSeconds((s) => s + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  const total = useAnimatedNumber(23194.8 + depositCount * 12.4 + dripSeconds * 0.12, {
+    duration: 1.3,
+    delay: ready ? 2.2 : 0,
+    paused: !ready,
+    format: (v) =>
+      `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+  });
+  const weekly = [35, 50, 40, 65, 55, 75, 60, 80, 70, 85, 78, 90];
+
   return (
     <div className="p-5">
       <div className="flex items-center justify-between mb-3">
         <span className="font-mono text-[9px] uppercase tracking-widest" style={{ color: colors.textMuted }}>Yield History</span>
         <span className="font-mono text-[9px] px-2 py-0.5 rounded-full bg-white/60 border border-white/40" style={{ color: colors.textMuted }}>Weekly</span>
       </div>
-      <div className="font-serif text-xl font-semibold mb-4" style={{ color: colors.text }}>$23,194.80</div>
+      <div className="font-serif text-xl font-semibold mb-4 tabular-nums" style={{ color: colors.text }}>{total}</div>
       <div className="flex items-end gap-1 h-16 mb-3">
-        {[35, 50, 40, 65, 55, 75, 60, 80, 70, 85, 78, 90].map((h, i) => (
+        {weekly.map((h, i) => (
           <motion.div
             key={i}
             className="flex-1 rounded-sm"
             style={{ backgroundColor: i >= 10 ? '#7C3AED' : '#DDD6FE' }}
             initial={{ height: '0%' }}
             animate={ready ? { height: `${h}%` } : { height: '0%' }}
-            transition={{ duration: 0.6, delay: 1.5 + i * 0.04, ease }}
+            transition={{ duration: 0.6, delay: 2.2 + i * 0.04, ease }}
           />
         ))}
       </div>

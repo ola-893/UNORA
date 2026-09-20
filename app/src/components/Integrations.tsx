@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { motion, useInView } from 'motion/react';
 import { useTheme } from '@/contexts/ThemeContext';
+import { ScrollHeader } from '@/components/animations';
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -22,19 +23,14 @@ export default function Integrations({ ready }: { ready: boolean }) {
   return (
     <section ref={ref} className="py-16 sm:py-24 px-6 sm:px-10 lg:px-16">
       <div className="max-w-7xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={show ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-          transition={{ duration: 0.7, ease }}
-          className="text-center mb-10"
-        >
+        <ScrollHeader className="text-center mb-10">
           <span className="font-mono text-[10px] uppercase tracking-[0.3em] mb-3 block" style={{ color: colors.textMuted }}>
             Built with
           </span>
           <h2 className="font-serif text-2xl sm:text-3xl tracking-tight" style={{ color: colors.text }}>
             Powered by the best infrastructure
           </h2>
-        </motion.div>
+        </ScrollHeader>
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           {partners.map((partner, i) => (

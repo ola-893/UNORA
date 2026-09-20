@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { motion, useInView } from 'motion/react';
 import { useTheme } from '@/contexts/ThemeContext';
+import { ScrollHeader } from '@/components/animations';
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -14,23 +15,20 @@ export default function Newsletter({ ready }: { ready: boolean }) {
   return (
     <section ref={ref} className="py-20 sm:py-28 px-6 sm:px-10 lg:px-16">
       <div className="max-w-xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={show ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-          transition={{ duration: 0.7, ease }}
-        >
+        <ScrollHeader>
           <span className="font-mono text-[10px] uppercase tracking-[0.3em] mb-3 block" style={{ color: colors.textMuted }}>
             Stay updated
           </span>
           <h2 className="font-serif text-2xl sm:text-3xl tracking-tight mb-3" style={{ color: colors.text }}>
             Be the first to know.
           </h2>
-          <p className="font-sans text-sm sm:text-base mb-6" style={{ color: colors.textSecondary }}>
+          <p className="font-sans text-sm sm:text-base" style={{ color: colors.textSecondary }}>
             Get notified when we launch on mainnet, add new markets, or ship new features.
           </p>
+        </ScrollHeader>
 
           <motion.div
-            className="flex gap-3"
+            className="flex gap-3 mt-6"
             initial={{ opacity: 0, y: 15 }}
             animate={show ? { opacity: 1, y: 0 } : { opacity: 0, y: 15 }}
             transition={{ duration: 0.6, delay: show ? 0.2 : 0, ease }}
@@ -50,7 +48,6 @@ export default function Newsletter({ ready }: { ready: boolean }) {
               Notify me
             </button>
           </motion.div>
-        </motion.div>
       </div>
     </section>
   );

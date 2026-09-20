@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { motion, useInView } from 'motion/react';
 import { Scan, TrendingDown, CreditCard, RotateCcw } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
+import { ScrollHeader } from '@/components/animations';
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -41,12 +42,7 @@ export default function HowItWorks({ ready }: { ready: boolean }) {
   return (
     <section ref={ref} id="how-it-works" className="py-20 sm:py-28 px-6 sm:px-10 lg:px-16">
       <div className="max-w-7xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={show ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-          transition={{ duration: 0.7, ease }}
-          className="mb-14"
-        >
+        <ScrollHeader className="mb-14">
           <span className="font-mono text-[10px] uppercase tracking-[0.3em] mb-3 block" style={{ color: colors.textMuted }}>
             How it works
           </span>
@@ -55,7 +51,7 @@ export default function HowItWorks({ ready }: { ready: boolean }) {
             <br />
             <span className="italic" style={{ color: colors.textSecondary }}>One protocol.</span>
           </h2>
-        </motion.div>
+        </ScrollHeader>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {steps.map((step, i) => (
