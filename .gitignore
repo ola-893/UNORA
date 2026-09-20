@@ -7,6 +7,7 @@ contracts/cache/
 contracts/broadcast/
 *.log
 .local/
+.DS_Store
 node_modules/
 indexer/generated/
 indexer/config.yaml
