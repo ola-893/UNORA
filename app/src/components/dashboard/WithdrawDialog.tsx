@@ -4,7 +4,6 @@ import { X, ChevronLeft, Check, Loader2 } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { poolName, type LendingPosition } from '@/lib/position';
 import type { PoolId } from '@/lib/markets';
-import { explorerTxUrl } from '@/lib/chains';
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -53,7 +52,7 @@ export default function WithdrawDialog({
   );
   const [amount, setAmount] = useState('');
   const [withdrawing, setWithdrawing] = useState(false);
-  const [txHash, setTxHash] = useState<string | undefined>(undefined);
+  const [withdrawn, setWithdrawn] = useState(false);
 
   const holding = lending.holdings.find((h) => h.pool === pool) ?? null;
   const available = holding?.value ?? 0;
@@ -68,18 +67,12 @@ export default function WithdrawDialog({
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose, withdrawing]);
 
-  /** Stand-in for the hash a real `LendingPool.withdraw()` would return. */
-  function mockTxHash(): string {
-    const bytes = new Uint8Array(32);
-    crypto.getRandomValues(bytes);
-    return `0x${Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')}`;
-  }
-
   function handleWithdraw() {
     setWithdrawing(true);
-    // Mock of the LendingPool.withdraw() round-trip; the real version awaits the receipt.
+    // Demo: no transaction is submitted — the Unora pool contracts don't exist yet, so a
+    // fake hash would point the user at an explorer page for a tx that never happened.
     setTimeout(() => {
-      setTxHash(mockTxHash());
+      setWithdrawn(true);
       setWithdrawing(false);
     }, 1500);
   }
@@ -118,7 +111,7 @@ export default function WithdrawDialog({
           </button>
         )}
 
-        {txHash ? (
+        {withdrawn ? (
           /* ---- Confirmed ---- */
           <div className="pt-2">
             <div
@@ -133,15 +126,10 @@ export default function WithdrawDialog({
             <p className="font-sans text-sm mb-2" style={{ color: colors.textSecondary }}>
               {usd(parsed)} from {poolName(holding?.pool ?? pool!)}
             </p>
-            <a
-              href={explorerTxUrl(txHash)}
-              target="_blank"
-              rel="noreferrer"
-              className="block font-mono text-[10px] mb-6 transition-opacity hover:opacity-70"
-              style={{ color: '#7C3AED' }}
-            >
-              {txHash.slice(0, 10)}…{txHash.slice(-8)} ↗
-            </a>
+            <p className="font-mono text-[10px] mb-6 leading-relaxed" style={{ color: colors.textMuted }}>
+              Demo: no transaction was submitted. The live withdraw flow lands with the
+              Unora pool contracts.
+            </p>
             <button
               onClick={onClose}
               className="w-full px-5 py-3 rounded-xl font-sans text-sm font-medium transition-all hover:opacity-90"

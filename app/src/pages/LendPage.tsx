@@ -133,7 +133,10 @@ function StatCard({
 export default function LendPage() {
   const colors = useTheme();
   const { search } = useLocation();
-  const { position } = resolveWalletState(search);
+  // Demo scenarios remain available via ?state=; the default view shows real wallet data
+  // from the deployed contracts (the Unora pools are not live yet, so user figures are 0).
+  const demo = resolveWalletState(search);
+  const position = new URLSearchParams(search).has('state') ? demo.position : { scored: false, lending: null };
   const [withdrawPool, setWithdrawPool] = useState<PoolId | null | undefined>(undefined);
   const [depositPool, setDepositPool] = useState<PoolId | null | undefined>(undefined);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
@@ -159,7 +162,6 @@ export default function LendPage() {
     totalSupplied > 0
       ? live.reduce((sum, m) => sum + supplyApy(m) * marketDeposits(m), 0) / totalSupplied
       : 0;
-  const soonCount = MARKETS.length - live.length;
 
   // Deposits are USDC tranches, so a holding belongs to the USDC market whatever tranche it
   // sits in — the same rule the market detail page uses.
@@ -172,8 +174,11 @@ export default function LendPage() {
     <DashboardLayout>
       <PageHeader
         title="Deposit"
-        subtitle="Supply assets to Unora pools and earn yield. Your deposits fund borrower credit lines backed by onchain reputation."
-        note={<StatusNote>USDC live on Monad testnet · {soonCount} reserves rolling out</StatusNote>}
+        subtitle="Supply assets to Unora pools and earn yield. Your deposits fund borrower credit lines backed by onchain reputation."          note={
+            <StatusNote>
+              Demo market data · deposit contracts land with the Unora pools
+            </StatusNote>
+          }
       />
 
       <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8 space-y-6">

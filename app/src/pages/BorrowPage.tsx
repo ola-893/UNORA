@@ -41,8 +41,6 @@ export default function BorrowPage() {
   /** `null` while disconnected — the tables read this to decide what's actionable. */
   const score = authenticated ? SCORE.value : null;
 
-  const soonCount = MARKETS.filter((m) => m.status === 'soon').length;
-
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     const filtered = MARKETS.filter((m) => {
@@ -84,7 +82,11 @@ export default function BorrowPage() {
         <PageHeader
           title="Borrow"
           subtitle="Borrow against your onchain credit history, not a fixed overcollateralised deposit. The better your record, the less you lock."
-          note={<StatusNote>USDC live on Monad testnet · {soonCount} reserves rolling out</StatusNote>}
+          note={
+            <StatusNote>
+              Demo market data · credit-line contracts live on Monad testnet
+            </StatusNote>
+          }
         >
           <Stat label="Total deposits" value={totalDeposits()} />
           <Stat label="Total loans" value={totalBorrows()} />

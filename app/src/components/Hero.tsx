@@ -603,14 +603,14 @@ export default function Hero({ ready }: { ready: boolean }) {
           transition={{ duration: 0.6, delay: 0.8, ease }}
         >
           <Link
-            to="/dashboard"
+            to="/lend"
             className="inline-flex items-center gap-2 px-7 py-3 font-sans text-sm font-medium rounded-full transition-all duration-300 hover:opacity-90 shadow-lg"
             style={{ backgroundColor: '#7C3AED', color: 'white' }}
           >
             Borrow with less
           </Link>
           <Link
-            to="/dashboard"
+            to="/lend"
             className="inline-flex items-center gap-2 px-7 py-3 font-sans text-sm font-medium rounded-full bg-white/70 border border-white/50 transition-all duration-300 hover:bg-white/90"
             style={{ color: '#7C3AED' }}
           >

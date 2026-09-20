@@ -53,7 +53,7 @@ export default function Navbar() {
         </nav>
 
         <Link
-          to="/dashboard"
+          to="/lend"
           className="px-5 py-2 font-sans text-sm font-medium rounded-full transition-all duration-300 hover:opacity-80"
           style={{ backgroundColor: colors.text, color: colors.bg }}
         >

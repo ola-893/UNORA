@@ -5,14 +5,8 @@ import {
   LayoutDashboard,
   ArrowUpRight,
   ArrowDownLeft,
-  ArrowDownToLine,
-  ArrowUpFromLine,
   Clock,
   Users,
-  Zap,
-  Lock,
-  BarChart3,
-  Link2,
   PanelLeftClose,
   PanelLeftOpen,
   Star,
@@ -23,45 +17,27 @@ import {
 export const SIDEBAR_W = 240;
 export const SIDEBAR_W_COLLAPSED = 76;
 
+/**
+ * One link per destination — every entry is a real page, and nothing repeats.
+ *
+ * The old secondary "action groups" (Request Loan, Lock Collateral, Withdraw, Score
+ * History, Sponsor Someone) all pointed at paths this list already covers, and several
+ * pointed at things that aren't pages at all — steps and dialogs. Get Scored earned its
+ * spot here as the only genuinely unique destination.
+ */
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: ArrowUpRight, label: 'Borrow', path: '/borrow' },
   { icon: ArrowDownLeft, label: 'Deposit', path: '/lend' },
   { icon: Clock, label: 'Activity', path: '/dashboard/activity' },
   { icon: Users, label: 'Sponsors', path: '/sponsor/graph' },
+  { icon: Star, label: 'Get Scored', path: '/get-scored' },
 ];
 
-/**
- * Secondary actions, grouped by which side of the protocol they belong to.
- *
- * Flat, the list read as if Unora were borrow-only — every entry was borrower-facing, and a
- * lender had no top-level route to deposit or withdraw even though those are core actions.
- * The labels are hidden on the collapsed rail, where the icons stand alone with tooltips.
- */
-const actionGroups = [
-  {
-    label: 'Borrow',
-    items: [
-      { icon: Zap, label: 'Request Loan', path: '/borrow' },
-      { icon: Lock, label: 'Lock Collateral', path: '/borrow' },
-    ],
-  },
-  {
-    label: 'Lend',
-    items: [
-      { icon: ArrowDownToLine, label: 'Deposit', path: '/lend' },
-      { icon: ArrowUpFromLine, label: 'Withdraw', path: '/lend' },
-    ],
-  },
-  {
-    label: 'Reputation',
-    items: [
-      { icon: Star, label: 'Get Scored', path: '/get-scored' },
-      { icon: BarChart3, label: 'Score History', path: '/dashboard' },
-      { icon: Link2, label: 'Sponsor Someone', path: '/sponsor/graph' },
-    ],
-  },
-];
+/** True when the current path is this item's page or a sub-page of it. */
+function isActivePath(pathname: string, itemPath: string): boolean {
+  return pathname === itemPath || pathname.startsWith(`${itemPath}/`);
+}
 
 /**
  * The rail.
@@ -83,6 +59,12 @@ export default function DashboardSidebar() {
 
   const collapsed = isDesktop && railCollapsed;
   const hidden = !isDesktop && !mobileOpen;
+
+  // Longest matching prefix wins, so /dashboard/activity lights Activity rather than
+  // Dashboard, and /borrow/usdc keeps Borrow lit on the market detail page.
+  const activePath = navItems
+    .filter((item) => isActivePath(location.pathname, item.path))
+    .sort((a, b) => b.path.length - a.path.length)[0]?.path;
 
   return (
     <aside
@@ -153,10 +135,10 @@ export default function DashboardSidebar() {
       </div>
 
       <nav className={`flex-1 overflow-y-auto ${collapsed ? 'px-3' : 'px-4'}`}>
-        {/* Primary destinations */}
+        {/* One link per destination */}
         <div className={collapsed ? 'flex flex-col gap-2 mb-6' : 'grid grid-cols-2 gap-2 mb-6'}>
           {navItems.map((item) => {
-            const isActive = location.pathname === item.path;
+            const isActive = item.path === activePath;
             const Icon = item.icon;
             return (
               <Link
@@ -183,77 +165,7 @@ export default function DashboardSidebar() {
             );
           })}
         </div>
-
-        <div className="h-px mb-4" style={{ backgroundColor: colors.border }} />
-
-        {/* Secondary actions, grouped by side of the protocol */}
-        <div className="space-y-5">
-          {actionGroups.map((group) => (
-            <div key={group.label}>
-              {!collapsed && (
-                <div
-                  className="font-mono text-[9px] uppercase tracking-widest px-3 mb-2"
-                  style={{ color: colors.textMuted }}
-                >
-                  {group.label}
-                </div>
-              )}
-              <div className="space-y-1.5">
-                {group.items.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <Link
-                      key={item.label}
-                      to={item.path}
-                      onClick={closeMobile}
-                      title={collapsed ? item.label : undefined}
-                      className={`w-full flex items-center rounded-xl transition-colors hover:bg-white/60 ${
-                        collapsed ? 'justify-center p-3' : 'gap-3 px-3 py-2.5'
-                      }`}
-                    >
-                      <Icon
-                        className="w-4 h-4 shrink-0"
-                        style={{ color: colors.textMuted }}
-                        strokeWidth={1.5}
-                      />
-                      {!collapsed && (
-                        <span
-                          className="font-sans text-xs whitespace-nowrap"
-                          style={{ color: colors.textSecondary }}
-                        >
-                          {item.label}
-                        </span>
-                      )}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
       </nav>
-
-      {/* Promo — hidden on the rail, where there is no room for the copy */}
-      {!collapsed && (
-        <div className="p-4 mt-auto shrink-0">
-          <div
-            className="p-4 rounded-2xl relative overflow-hidden"
-            style={{ backgroundColor: '#7C3AED' }}
-          >
-            <div className="relative z-10">
-              <div className="flex items-center gap-1.5 mb-2">
-                <span className="font-sans text-xs font-bold text-white">Pro</span>
-                <Zap className="w-3 h-3 text-white/80" />
-              </div>
-              <p className="font-sans text-[10px] text-white/80 leading-relaxed">
-                Everything you need for onchain credit and lending
-              </p>
-            </div>
-            <div className="absolute -right-4 -bottom-4 w-20 h-20 rounded-full bg-white/10" />
-            <div className="absolute -right-2 -bottom-2 w-12 h-12 rounded-full bg-white/10" />
-          </div>
-        </div>
-      )}
     </aside>
   );
 }

@@ -297,7 +297,11 @@ export default function MarketDetailPage() {
   const colors = useTheme();
   const { symbol } = useParams();
   const { search } = useLocation();
-  const { position } = resolveWalletState(search);
+  // Same rule as the dashboard: real wallet data by default, demo scenarios via ?state=.
+  const demo = resolveWalletState(search);
+  const position = new URLSearchParams(search).has('state')
+    ? demo.position
+    : { scored: false, lending: null };
 
   const market = MARKETS.find((m) => m.symbol.toLowerCase() === (symbol ?? '').toLowerCase());
   const pool = market ? POOLS.find((p) => p.id === market.pool) : undefined;

@@ -62,6 +62,18 @@ export default function SponsorGraphPage() {
         />
 
         <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+          {/* The SponsorGraph contract doesn't exist yet — this page is the design target,
+              rendered over sample network data so the interaction can be judged. */}
+          <div
+            className="flex items-center gap-2 p-3.5 rounded-2xl border mb-6"
+            style={{ borderColor: colors.border, backgroundColor: 'rgba(124,58,237,0.04)' }}
+          >
+            <Network className="w-4 h-4 shrink-0" style={{ color: '#7C3AED' }} strokeWidth={1.5} />
+            <span className="font-mono text-[10px] leading-relaxed" style={{ color: colors.textMuted }}>
+              Design preview — the SponsorGraph contract is the next build. Edges below are
+              sample data showing the intended delegation and slashing mechanics.
+            </span>
+          </div>
           {/* Stats */}
           <motion.div
             initial={{ opacity: 0, y: 15 }}

@@ -10,8 +10,18 @@ import Dashboard from '@/pages/Dashboard';
 import ActivityPage from '@/pages/ActivityPage';
 import SponsorGraphPage from '@/pages/SponsorGraphPage';
 import GetScoredPage from '@/pages/GetScoredPage';
+import RequireAuth from '@/components/AuthGate';
 import LoadingScreen from '@/components/LoadingScreen';
 import { hasSeenIntro, markIntroSeen } from '@/lib/intro';
+
+/**
+ * Personal pages require sign-in; the market pages stay public so judges can browse
+ * without connecting. The guard renders an inline sign-in screen in place of the page —
+ * no redirect, so nobody loses their place.
+ */
+function gated(page: React.ReactNode) {
+  return <RequireAuth>{page}</RequireAuth>;
+}
 
 export default function App() {
   // The intro is a first-impression moment, not a loading state, so a returning visitor
@@ -34,10 +44,10 @@ export default function App() {
               <Route path="/lend" element={<LendPage />} />
               <Route path="/borrow" element={<BorrowPage />} />
               <Route path="/borrow/:symbol" element={<MarketDetailPage />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/dashboard/activity" element={<ActivityPage />} />
-              <Route path="/sponsor/graph" element={<SponsorGraphPage />} />
-              <Route path="/get-scored" element={<GetScoredPage />} />
+              <Route path="/dashboard" element={gated(<Dashboard />)} />
+              <Route path="/dashboard/activity" element={gated(<ActivityPage />)} />
+              <Route path="/sponsor/graph" element={gated(<SponsorGraphPage />)} />
+              <Route path="/get-scored" element={gated(<GetScoredPage />)} />
               {/* Anything unrouted falls back to the landing page rather than a blank screen. */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

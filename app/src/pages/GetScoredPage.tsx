@@ -14,15 +14,22 @@ import {
 import { useTheme } from '@/contexts/ThemeContext';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { useUnoraWallet } from '@/hooks/useUnoraWallet';
+import { useOnchainPosition } from '@/hooks/useOnchainPosition';
 import { shortAddress, explorerTxUrl, MONAD_TESTNET } from '@/lib/chains';
+import { PROTOCOL_ADDRESSES, explorerFor } from '@/lib/onchain';
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
-/** The terms each tier unlocks — mirrors TIER_LADDER from lib/position. */
+/**
+ * Terms each credential tier unlocks — read from the deployed CreditLine, not invented.
+ * `ltvBps()` returns 50% for any wallet and 80% once a Tier 2+ payment credential is
+ * valid. Unora's full ladder (Prime / Established / Building) arrives with the scoring
+ * engine; until then this is what the chain actually enforces.
+ */
 const TIERS = [
-  { name: 'Building', minScore: 50, ratio: '55% collateral', ceiling: '$6,200' },
-  { name: 'Established', minScore: 65, ratio: '35% collateral', ceiling: '$12,400' },
-  { name: 'Prime', minScore: 80, ratio: '20% collateral', ceiling: '$25,000' },
+  { name: 'Base', terms: '50% LTV', detail: 'any wallet, no credential needed' },
+  { name: 'Tier 2 credential', terms: '80% LTV', detail: 'valid payment-processor attestation' },
+  { name: 'Tier 3 credential', terms: '80% LTV', detail: 'highest tier — reserved for future terms' },
 ];
 
 /**
@@ -46,6 +53,7 @@ export default function GetScoredPage() {
   const colors = useTheme();
   const { ready, authenticated, login, address, displayAddress, isCorrectNetwork } =
     useUnoraWallet();
+  const { position } = useOnchainPosition(address);
 
   const [verifying, setVerifying] = useState(false);
   const [verified, setVerified] = useState(false);
@@ -54,8 +62,12 @@ export default function GetScoredPage() {
   const [txHash, setTxHash] = useState<string | undefined>(undefined);
   const [copied, setCopied] = useState(false);
 
+  // The wallet may already hold a live credential — read, not assumed.
+  const existing = position?.credential ?? null;
+  const alreadyScored = !!existing && !existing.expired;
+
   // The step the wallet is on. Authenticated wallets have already done step 0.
-  const step = minted ? 3 : verified ? 2 : authenticated ? 1 : 0;
+  const step = minted || alreadyScored ? 3 : verified ? 2 : authenticated ? 1 : 0;
 
   // Verification runs as a simulated Reclaim session.
   useEffect(() => {
@@ -89,8 +101,8 @@ export default function GetScoredPage() {
 
   const steps = [
     { label: 'Connect', state: authenticated ? 'done' : step === 0 ? 'active' : 'todo' },
-    { label: 'Verify payout', state: verified ? 'done' : step === 1 ? 'active' : 'todo' },
-    { label: 'Mint score NFT', state: minted ? 'done' : step === 2 ? 'active' : 'todo' },
+    { label: 'Verify payout', state: verified || alreadyScored ? 'done' : step === 1 ? 'active' : 'todo' },
+    { label: 'Mint score NFT', state: minted || alreadyScored ? 'done' : step === 2 ? 'active' : 'todo' },
   ] as const;
 
   return (
@@ -148,8 +160,54 @@ export default function GetScoredPage() {
           ))}
         </div>
 
+        {/* Already scored — read from the registry, not assumed. */}
+        {alreadyScored && (
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease }}
+            className="rounded-2xl border shadow-sm p-6 sm:p-8 text-center mb-6"
+            style={{ borderColor: '#639922', backgroundColor: 'rgba(99,153,34,0.06)' }}
+          >
+            <div
+              className="w-12 h-12 rounded-full mx-auto mb-4 flex items-center justify-center"
+              style={{ backgroundColor: 'rgba(99,153,34,0.14)' }}
+            >
+              <Check className="w-6 h-6" style={{ color: '#639922' }} strokeWidth={2.5} />
+            </div>
+            <h2 className="font-serif text-xl mb-2" style={{ color: colors.text }}>
+              This wallet is already scored
+            </h2>
+            <p className="font-sans text-sm mb-4 max-w-md mx-auto leading-relaxed" style={{ color: colors.textSecondary }}>
+              {existing!.tier} · {existing!.source} credential, valid until{' '}
+              {existing!.expiresAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}.
+              Borrowing terms are live across every pool.
+            </p>
+            <a
+              href={explorerFor(PROTOCOL_ADDRESSES.attestationRegistry)}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 font-mono text-[10px] mb-5 transition-opacity hover:opacity-70"
+              style={{ color: '#7C3AED' }}
+            >
+              <ExternalLink className="w-3 h-3" strokeWidth={1.5} />
+              Verify on the registry
+            </a>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Link
+                to="/dashboard"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-sans text-sm font-medium transition-all hover:opacity-90"
+                style={{ backgroundColor: '#7C3AED', color: '#FFFFFF' }}
+              >
+                Go to dashboard
+                <ArrowRight className="w-4 h-4" strokeWidth={1.5} />
+              </Link>
+            </div>
+          </motion.div>
+        )}
+
         {/* Step 0 — connect */}
-        {step === 0 && (
+        {!alreadyScored && step === 0 && (
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
@@ -190,7 +248,7 @@ export default function GetScoredPage() {
         )}
 
         {/* Step 1 — verify */}
-        {step === 1 && (
+        {!alreadyScored && step === 1 && (
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
@@ -251,13 +309,15 @@ export default function GetScoredPage() {
               )}
             </button>
             <p className="font-mono text-[9px] mt-3 text-center" style={{ color: colors.textMuted }}>
-              Demo: the session is simulated. Contracts and flow shape match the deployed testnet registry.
+              Demo: the Reclaim session is simulated. The relay that writes to{' '}
+              {shortAddress(PROTOCOL_ADDRESSES.attestationRegistry)} is operated by the team —
+              no self-service writes yet.
             </p>
           </motion.div>
         )}
 
         {/* Step 2 — mint */}
-        {step === 2 && (
+        {!alreadyScored && step === 2 && (
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
@@ -284,17 +344,13 @@ export default function GetScoredPage() {
                 </span>
               </div>
               <div className="space-y-2">
-                {[
-                  ['Credential', 'Tier 2 payment-processor payout'],
-                  ['Validity', '30 days, refreshable'],
-                  ['Collateral terms', '55% → 35% at Tier 2'],
-                ].map(([label, value]) => (
-                  <div key={label} className="flex items-baseline justify-between gap-4">
+                {TIERS.map((tier) => (
+                  <div key={tier.name} className="flex items-baseline justify-between gap-4">
                     <span className="font-sans text-xs" style={{ color: colors.textSecondary }}>
-                      {label}
+                      {tier.name}
                     </span>
                     <span className="font-mono text-[11px]" style={{ color: colors.text }}>
-                      {value}
+                      {tier.terms}
                     </span>
                   </div>
                 ))}
@@ -332,8 +388,8 @@ export default function GetScoredPage() {
           </motion.div>
         )}
 
-        {/* Done */}
-        {minted && (
+        {/* Done — a simulated mint (demo) or a pre-existing credential (read) */}
+        {minted && !alreadyScored && (
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
@@ -413,10 +469,10 @@ export default function GetScoredPage() {
                   {tier.name}
                 </div>
                 <div className="font-mono text-[10px] mb-2" style={{ color: '#7C3AED' }}>
-                  {tier.ratio} · {tier.ceiling}
+                  {tier.terms}
                 </div>
                 <div className="font-mono text-[9px]" style={{ color: colors.textMuted }}>
-                  score {tier.minScore}+
+                  {tier.detail}
                 </div>
               </div>
             ))}

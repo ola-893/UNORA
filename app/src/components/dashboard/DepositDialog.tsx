@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { X, ChevronLeft, Check, Loader2, ShieldCheck, Info } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
-import { MARKETS, POOLS, formatApr, supplyApy, type PoolId } from '@/lib/markets';
+import { MARKETS, POOLS, supplyApy, type PoolId } from '@/lib/markets';
 import { IDLE_BALANCE } from '@/lib/position';
-import { MONAD_TESTNET, explorerTxUrl } from '@/lib/chains';
+import { MONAD_TESTNET } from '@/lib/chains';
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -70,7 +70,7 @@ export default function DepositDialog({
   const [amount, setAmount] = useState('');
   const [approved, setApproved] = useState(false);
   const [depositing, setDepositing] = useState(false);
-  const [txHash, setTxHash] = useState<string | undefined>(undefined);
+  const [deposited, setDeposited] = useState(false);
 
   const selected = poolsWithRoom.find((p) => p.pool === pool) ?? null;
   const parsed = Number(amount);
@@ -87,18 +87,12 @@ export default function DepositDialog({
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  /** Stand-in for the hash a real `LendingPool.deposit()` would return. */
-  function mockTxHash(): string {
-    const bytes = new Uint8Array(32);
-    crypto.getRandomValues(bytes);
-    return `0x${Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')}`;
-  }
-
   function handleDeposit() {
     setDepositing(true);
-    // Mock of the LendingPool.deposit() round-trip; the real version awaits the receipt.
+    // Demo: no transaction is submitted — the Unora pool contracts don't exist yet, so a
+    // fake hash would point the user at an explorer page for a tx that never happened.
     setTimeout(() => {
-      setTxHash(mockTxHash());
+      setDeposited(true);
       setDepositing(false);
     }, 1500);
   }
@@ -135,7 +129,7 @@ export default function DepositDialog({
           <X className="w-4 h-4" style={{ color: colors.textMuted }} strokeWidth={1.5} />
         </button>
 
-        {txHash ? (
+        {deposited ? (
           /* ---- Confirmed ---- */
           <div className="pt-2">
             <div
@@ -153,15 +147,10 @@ export default function DepositDialog({
             <p className="font-mono text-[10px] mb-1" style={{ color: colors.textMuted }}>
               Earning {selected ? pct(selected.apy) : '—'} APY · {selected?.name} tranche
             </p>
-            <a
-              href={explorerTxUrl(txHash)}
-              target="_blank"
-              rel="noreferrer"
-              className="block font-mono text-[10px] mb-6 transition-opacity hover:opacity-70"
-              style={{ color: '#7C3AED' }}
-            >
-              {txHash.slice(0, 10)}…{txHash.slice(-8)} ↗
-            </a>
+            <p className="font-mono text-[10px] mb-6 leading-relaxed" style={{ color: colors.textMuted }}>
+              Demo: no transaction was submitted. The live deposit flow lands with the
+              Unora pool contracts.
+            </p>
             <button
               onClick={onClose}
               className="w-full px-5 py-3 rounded-xl font-sans text-sm font-medium transition-all hover:opacity-90"
