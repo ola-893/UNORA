@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { X, ChevronLeft, Check } from 'lucide-react';
+import { X, ChevronLeft, Check, Loader2 } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { poolName, type LendingPosition } from '@/lib/position';
 import type { PoolId } from '@/lib/markets';
+import { explorerTxUrl } from '@/lib/chains';
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -27,22 +28,32 @@ function pct(value: number, digits = 2): string {
  * button stays put and asks which pool first.
  *
  * A single-tranche wallet skips the picker entirely; there is nothing to disambiguate.
+ * A `preselectedPool` skips it too — the row-level entry on the Deposit page already knows
+ * which pool was meant, so asking again would be a question the UI just answered.
+ *
+ * The confirmation state carries the transaction hash, matching the deposit flow: a
+ * submitted withdrawal without a receipt link leaves the user refreshing a table to learn
+ * whether it worked.
  */
 export default function WithdrawDialog({
   lending,
+  preselectedPool,
   onClose,
 }: {
   lending: LendingPosition;
+  /** Pool to withdraw from directly, skipping the picker. */
+  preselectedPool?: PoolId | null;
   onClose: () => void;
 }) {
   const colors = useTheme();
-  const multiPool = lending.holdings.length > 1;
+  const multiPool = lending.holdings.length > 1 && preselectedPool == null;
 
   const [pool, setPool] = useState<PoolId | null>(
-    multiPool ? null : (lending.holdings[0]?.pool ?? null),
+    preselectedPool ?? (multiPool ? null : (lending.holdings[0]?.pool ?? null)),
   );
   const [amount, setAmount] = useState('');
-  const [submitted, setSubmitted] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [txHash, setTxHash] = useState<string | undefined>(undefined);
 
   const holding = lending.holdings.find((h) => h.pool === pool) ?? null;
   const available = holding?.value ?? 0;
@@ -51,11 +62,27 @@ export default function WithdrawDialog({
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape' && !withdrawing) onClose();
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [onClose, withdrawing]);
+
+  /** Stand-in for the hash a real `LendingPool.withdraw()` would return. */
+  function mockTxHash(): string {
+    const bytes = new Uint8Array(32);
+    crypto.getRandomValues(bytes);
+    return `0x${Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')}`;
+  }
+
+  function handleWithdraw() {
+    setWithdrawing(true);
+    // Mock of the LendingPool.withdraw() round-trip; the real version awaits the receipt.
+    setTimeout(() => {
+      setTxHash(mockTxHash());
+      setWithdrawing(false);
+    }, 1500);
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
@@ -68,7 +95,7 @@ export default function WithdrawDialog({
         }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        onClick={onClose}
+        onClick={withdrawing ? undefined : onClose}
       />
 
       <motion.div
@@ -81,15 +108,17 @@ export default function WithdrawDialog({
         className="relative w-full max-w-[420px] max-h-[calc(100vh-2rem)] overflow-y-auto rounded-2xl border shadow-2xl p-5 sm:p-6"
         style={{ borderColor: colors.border, backgroundColor: '#FFFDFB' }}
       >
-        <button
-          onClick={onClose}
-          aria-label="Close"
-          className="absolute top-4 right-4 w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-black/5"
-        >
-          <X className="w-4 h-4" style={{ color: colors.textMuted }} strokeWidth={1.5} />
-        </button>
+        {!withdrawing && (
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="absolute top-4 right-4 w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-black/5"
+          >
+            <X className="w-4 h-4" style={{ color: colors.textMuted }} strokeWidth={1.5} />
+          </button>
+        )}
 
-        {submitted && holding ? (
+        {txHash ? (
           /* ---- Confirmed ---- */
           <div className="pt-2">
             <div
@@ -101,9 +130,18 @@ export default function WithdrawDialog({
             <h2 className="font-serif text-xl mb-1" style={{ color: colors.text }}>
               Withdrawal submitted
             </h2>
-            <p className="font-sans text-sm mb-6" style={{ color: colors.textSecondary }}>
-              {usd(parsed)} from {poolName(holding.pool)}
+            <p className="font-sans text-sm mb-2" style={{ color: colors.textSecondary }}>
+              {usd(parsed)} from {poolName(holding?.pool ?? pool!)}
             </p>
+            <a
+              href={explorerTxUrl(txHash)}
+              target="_blank"
+              rel="noreferrer"
+              className="block font-mono text-[10px] mb-6 transition-opacity hover:opacity-70"
+              style={{ color: '#7C3AED' }}
+            >
+              {txHash.slice(0, 10)}…{txHash.slice(-8)} ↗
+            </a>
             <button
               onClick={onClose}
               className="w-full px-5 py-3 rounded-xl font-sans text-sm font-medium transition-all hover:opacity-90"
@@ -213,22 +251,30 @@ export default function WithdrawDialog({
             <div className="flex items-center gap-2">
               <button
                 onClick={onClose}
+                disabled={withdrawing}
                 className="flex-1 px-5 py-3 rounded-xl border font-sans text-sm font-medium transition-colors hover:bg-white"
                 style={{ borderColor: colors.border, color: colors.textSecondary }}
               >
                 Cancel
               </button>
               <button
-                disabled={!valid}
-                onClick={() => setSubmitted(true)}
-                className="flex-1 px-5 py-3 rounded-xl font-sans text-sm font-medium transition-all"
+                disabled={!valid || withdrawing}
+                onClick={handleWithdraw}
+                className="flex-1 px-5 py-3 rounded-xl font-sans text-sm font-medium transition-all flex items-center justify-center gap-2"
                 style={{
-                  backgroundColor: valid ? '#7C3AED' : 'rgba(124,58,237,0.25)',
+                  backgroundColor: valid && !withdrawing ? '#7C3AED' : 'rgba(124,58,237,0.25)',
                   color: '#FFFFFF',
-                  cursor: valid ? 'pointer' : 'not-allowed',
+                  cursor: valid && !withdrawing ? 'pointer' : 'not-allowed',
                 }}
               >
-                Withdraw
+                {withdrawing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" strokeWidth={2} />
+                    Withdrawing…
+                  </>
+                ) : (
+                  'Withdraw'
+                )}
               </button>
             </div>
           </>

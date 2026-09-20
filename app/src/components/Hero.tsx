@@ -2,12 +2,17 @@ import { useRef, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useScroll, useTransform, AnimatePresence } from 'motion/react';
 import { useTheme } from '@/contexts/ThemeContext';
-import { POSITION_TONES } from '@/lib/position';
+import { POSITION_TONES, BORROW_POSITION } from '@/lib/position';
 import { KIND_META, tokenAccent, useLiveActivity } from '@/lib/activity';
 import { useAnimatedNumber } from '@/hooks/useAnimatedNumber';
 import TokenIcon from '@/components/TokenIcon';
 
+import { PROTOCOL } from '@/lib/protocol';
+
 const ease = [0.22, 1, 0.36, 1] as const;
+
+/** How far into the 90-day term the hero's demo loan has streamed. */
+const STREAMED_DAYS = 30;
 
 /** The card chrome, shared by the floating and in-flow arrangements. */
 const CARD_SHELL =
@@ -248,14 +253,16 @@ function LendingCardBody({ ready }: { ready: boolean }) {
     return () => clearInterval(timer);
   }, [mountedAt]);
 
-  const balance = useAnimatedNumber(4250 + depositCount * 500 + interest, {
+  // Anchored to the dashboard's canonical deposit position: $12,500 value incl. $500
+  // yield — the same figures the Deposit page's "Your deposits" card shows.
+  const balance = useAnimatedNumber(12_500 + depositCount * 500 + interest, {
     duration: 1.1,
     delay: ready ? 2.1 : 0,
     paused: !ready,
     format: (v) =>
       `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
   });
-  const earned = useAnimatedNumber(178.5 + interest, {
+  const earned = useAnimatedNumber(500 + interest, {
     duration: 1.1,
     delay: ready ? 2.3 : 0,
     paused: !ready,
@@ -311,13 +318,13 @@ function ActivityCardBody({ ready }: { ready: boolean }) {
     paused: !ready,
     format: (v) => String(Math.round(v)),
   });
-  const loaned = useAnimatedNumber(8200 + loanCount * 500, {
+  const loaned = useAnimatedNumber(BORROW_POSITION.drawn + loanCount * 500, {
     duration: 1.2,
     delay: ready ? 1.3 : 0,
     paused: !ready,
     format: (v) => `$${(v / 1000).toFixed(1)}k`,
   });
-  const deposited = useAnimatedNumber(4200 + depositCount * 500, {
+  const deposited = useAnimatedNumber(12_500 + depositCount * 500, {
     duration: 1.2,
     delay: ready ? 1.4 : 0,
     paused: !ready,
@@ -444,8 +451,13 @@ function LoanCardBody({ ready }: { ready: boolean }) {
   useEffect(() => {
     const timer = setInterval(() => setDripSeconds((s) => s + 1), 1000);
     return () => clearInterval(timer);
-  }, []);
-  const repaidValue = 5330 + repaidCount * 45 + dripSeconds * 0.02;
+  }, []);  // Anchored to the dashboard's canonical loan (BORROW_POSITION): $5,000 principal +
+  // $88.40 interest to date = $5,088.40 owed — the same figures the RepayDialog quotes.
+  // The stream has been running for a third of the 90-day term, so repaid starts there and
+  // keeps climbing with repayment events plus the per-second drip: the bar is never still.
+  const totalOwed = BORROW_POSITION.drawn + BORROW_POSITION.interestPaid;
+  const streamed = (totalOwed * STREAMED_DAYS) / PROTOCOL.termDays;
+  const repaidValue = streamed + repaidCount * 45 + dripSeconds * 0.02;
   const repaid = useAnimatedNumber(repaidValue, {
     duration: 1.2,
     delay: ready ? 2.2 : 0,
@@ -453,14 +465,14 @@ function LoanCardBody({ ready }: { ready: boolean }) {
     format: (v) =>
       `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
   });
-  const remaining = useAnimatedNumber(8200 - repaidValue, {
+  const remaining = useAnimatedNumber(totalOwed - repaidValue, {
     duration: 1.2,
     delay: ready ? 2.2 : 0,
     paused: !ready,
     format: (v) =>
       `$${Math.max(v, 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
   });
-  const pct = Math.min((repaidValue / 8200) * 100, 100);
+  const pct = Math.min((repaidValue / totalOwed) * 100, 100);
 
   return (
     <div className="p-5">
@@ -468,8 +480,12 @@ function LoanCardBody({ ready }: { ready: boolean }) {
         <span className="font-mono text-[9px] uppercase tracking-widest" style={{ color: colors.textMuted }}>Active Loan</span>
         <span className="font-mono text-[9px] px-2 py-0.5 rounded-full bg-green-100 text-green-600">Streaming</span>
       </div>
-      <div className="font-serif text-2xl font-semibold mb-0.5 tabular-nums" style={{ color: colors.text }}>$8,200.00</div>
-      <div className="font-mono text-[9px] mb-4" style={{ color: colors.textMuted }}>4.2% APR · 35% collateral</div>
+      <div className="font-serif text-2xl font-semibold mb-0.5 tabular-nums" style={{ color: colors.text }}>
+        ${BORROW_POSITION.drawn.toLocaleString('en-US')}.00
+      </div>
+      <div className="font-mono text-[9px] mb-4" style={{ color: colors.textMuted }}>
+        {`${(BORROW_POSITION.apr * 100).toFixed(1)}% APR · ${(BORROW_POSITION.collateralRatio * 100).toFixed(0)}% collateral`}
+      </div>
       <div className="space-y-2.5">
         <div className="flex justify-between items-center">
           <span className="font-sans text-[10px]" style={{ color: colors.textMuted }}>Repaid</span>
@@ -498,7 +514,9 @@ function YieldCardBody({ ready }: { ready: boolean }) {
     const timer = setInterval(() => setDripSeconds((s) => s + 1), 1000);
     return () => clearInterval(timer);
   }, []);
-  const total = useAnimatedNumber(23194.8 + depositCount * 12.4 + dripSeconds * 0.12, {
+  // Anchored to the wallet's cumulative yield (YIELD_SERIES ends at $500), climbing with
+  // deposit events and the demonstration accrual.
+  const total = useAnimatedNumber(500 + depositCount * 12.4 + dripSeconds * 0.12, {
     duration: 1.3,
     delay: ready ? 2.2 : 0,
     paused: !ready,

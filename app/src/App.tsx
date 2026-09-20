@@ -9,6 +9,7 @@ import MarketDetailPage from '@/pages/MarketDetailPage';
 import Dashboard from '@/pages/Dashboard';
 import ActivityPage from '@/pages/ActivityPage';
 import SponsorGraphPage from '@/pages/SponsorGraphPage';
+import GetScoredPage from '@/pages/GetScoredPage';
 import LoadingScreen from '@/components/LoadingScreen';
 import { hasSeenIntro, markIntroSeen } from '@/lib/intro';
 
@@ -36,6 +37,7 @@ export default function App() {
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/dashboard/activity" element={<ActivityPage />} />
               <Route path="/sponsor/graph" element={<SponsorGraphPage />} />
+              <Route path="/get-scored" element={<GetScoredPage />} />
               {/* Anything unrouted falls back to the landing page rather than a blank screen. */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

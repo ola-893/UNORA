@@ -6,6 +6,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import PageHeader, { StatusNote } from '@/components/dashboard/PageHeader';
 import WithdrawDialog from '@/components/dashboard/WithdrawDialog';
+import DepositDialog from '@/components/dashboard/DepositDialog';
 import TokenIcon from '@/components/TokenIcon';
 import {
   MARKETS,
@@ -19,6 +20,7 @@ import {
   supplyApy,
   utilizationOf,
   type Market,
+  type PoolId,
 } from '@/lib/markets';
 import { positionValue, resolveWalletState } from '@/lib/position';
 
@@ -132,7 +134,8 @@ export default function LendPage() {
   const colors = useTheme();
   const { search } = useLocation();
   const { position } = resolveWalletState(search);
-  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [withdrawPool, setWithdrawPool] = useState<PoolId | null | undefined>(undefined);
+  const [depositPool, setDepositPool] = useState<PoolId | null | undefined>(undefined);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -205,17 +208,6 @@ export default function LendPage() {
             }
             tone={deposited > 0 ? '#639922' : undefined}
             delay={0.2}
-            action={
-              position.lending ? (
-                <button
-                  onClick={() => setWithdrawOpen(true)}
-                  className="px-3.5 py-2 rounded-lg font-sans text-xs font-medium transition-all hover:opacity-90 shrink-0"
-                  style={{ backgroundColor: '#7C3AED', color: '#FFFFFF' }}
-                >
-                  Withdraw
-                </button>
-              ) : undefined
-            }
           />
         </div>
 
@@ -394,14 +386,26 @@ export default function LendPage() {
                         {isSoon ? '—' : formatCompactUsd(market.liquidity)}
                       </div>
 
-                      {/* Your balance */}
+                      {/* Your balance — withdraw opens preselected to this pool when
+                          the wallet actually holds here, deposit otherwise. */}
                       <div className="text-right">
-                        <span
-                          className="font-mono text-xs tabular-nums"
-                          style={{ color: holding ? colors.text : colors.textMuted }}
-                        >
-                          {isSoon ? '—' : holding ? formatExactUsd(holding.value) : '$0.00'}
-                        </span>
+                        {isSoon ? (
+                          <span className="font-mono text-xs tabular-nums" style={{ color: colors.textMuted }}>
+                            —
+                          </span>
+                        ) : holding ? (
+                          <button
+                            onClick={() => setWithdrawPool(market.pool)}
+                            className="font-mono text-xs tabular-nums underline-offset-2 hover:underline"
+                            style={{ color: colors.text }}
+                          >
+                            {formatExactUsd(holding.value)}
+                          </button>
+                        ) : (
+                          <span className="font-mono text-xs tabular-nums" style={{ color: colors.textMuted }}>
+                            $0.00
+                          </span>
+                        )}
                       </div>
 
                       {/* Actions */}
@@ -432,7 +436,10 @@ export default function LendPage() {
                                 style={{ borderColor: colors.border, backgroundColor: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(12px)' }}
                               >
                                 <button
-                                  onClick={() => setOpenMenu(null)}
+                                  onClick={() => {
+                                    setOpenMenu(null);
+                                    setDepositPool(market.pool);
+                                  }}
                                   className="w-full flex items-center gap-2.5 px-4 py-2.5 font-sans text-xs transition-colors hover:bg-purple-50 text-left"
                                   style={{ color: colors.text }}
                                 >
@@ -462,8 +469,19 @@ export default function LendPage() {
         })}
       </div>
 
-      {withdrawOpen && position.lending && (
-        <WithdrawDialog lending={position.lending} onClose={() => setWithdrawOpen(false)} />
+      {withdrawPool !== undefined && position.lending && (
+        <WithdrawDialog
+          lending={position.lending}
+          preselectedPool={withdrawPool}
+          onClose={() => setWithdrawPool(undefined)}
+        />
+      )}
+
+      {depositPool !== undefined && (
+        <DepositDialog
+          preselectedPool={depositPool}
+          onClose={() => setDepositPool(undefined)}
+        />
       )}
     </DashboardLayout>
   );

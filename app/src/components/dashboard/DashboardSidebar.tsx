@@ -15,6 +15,7 @@ import {
   Link2,
   PanelLeftClose,
   PanelLeftOpen,
+  Star,
   X,
 } from 'lucide-react';
 
@@ -55,6 +56,7 @@ const actionGroups = [
   {
     label: 'Reputation',
     items: [
+      { icon: Star, label: 'Get Scored', path: '/get-scored' },
       { icon: BarChart3, label: 'Score History', path: '/dashboard' },
       { icon: Link2, label: 'Sponsor Someone', path: '/sponsor/graph' },
     ],

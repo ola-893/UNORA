@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Bell } from 'lucide-react';
+import { Bell, Wallet } from 'lucide-react';
+import { motion } from 'motion/react';
 import { SCORE } from '@/lib/protocol';
-import { resolveWalletState } from '@/lib/position';
+import { BORROW_POSITION, resolveWalletState } from '@/lib/position';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import PageHeader from '@/components/dashboard/PageHeader';
 import NetSummary from '@/components/dashboard/NetSummary';
@@ -12,6 +13,9 @@ import PositionChart from '@/components/dashboard/PositionChart';
 import LendingSection from '@/components/dashboard/LendingSection';
 import EmptyWalletState from '@/components/dashboard/EmptyWalletState';
 import ActivityList from '@/components/dashboard/ActivityList';
+import RepayDialog from '@/components/dashboard/RepayDialog';
+
+const ease = [0.22, 1, 0.36, 1] as const;
 
 /**
  * Time-aware greeting with no name.
@@ -52,6 +56,57 @@ function GreetingHeader() {
   );
 }
 
+/**
+ * One action, where the loan it acts on sits.
+ *
+ * Repay used to exist nowhere — a wallet could open a loan and watch the stream but not
+ * pay it down itself. The deck's cards are buttons (they rotate to the front), so the
+ * action can't live inside a card; it lives beside the deck instead, against the loan
+ * figures the deck shows.
+ */
+function LoanActions({ onRepay }: { onRepay: () => void }) {
+  const colors = useTheme();
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 0.2, ease }}
+      className="rounded-2xl border shadow-sm p-4 flex items-center justify-between gap-4 mb-4 flex-wrap"
+      style={{ borderColor: colors.border, backgroundColor: 'rgba(255,255,255,0.6)' }}
+    >
+      <div className="flex items-center gap-3 min-w-0">
+        <div
+          className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+          style={{ backgroundColor: 'rgba(186,117,23,0.1)' }}
+        >
+          <Wallet className="w-4 h-4" style={{ color: '#BA7517' }} strokeWidth={1.5} />
+        </div>
+        <div className="min-w-0">
+          <div className="font-mono text-[9px] uppercase tracking-widest" style={{ color: colors.textMuted }}>
+            Loan #{BORROW_POSITION.loanId}
+          </div>
+          <div className="font-mono text-[10px] tabular-nums" style={{ color: colors.text }}>
+            ${BORROW_POSITION.drawn.toLocaleString('en-US')} drawn ·{' '}
+            ${(BORROW_POSITION.drawn + BORROW_POSITION.interestPaid).toLocaleString('en-US', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}{' '}
+            owed · ${BORROW_POSITION.collateralLocked.toLocaleString('en-US')} locked
+          </div>
+        </div>
+      </div>
+      <button
+        onClick={onRepay}
+        className="px-4 py-2 rounded-xl font-sans text-xs font-medium transition-all hover:opacity-90 shrink-0"
+        style={{ backgroundColor: '#7C3AED', color: '#FFFFFF' }}
+      >
+        Repay
+      </button>
+    </motion.div>
+  );
+}
+
 /** Two facts about the score, not five — the rest are already on the deck's score card. */
 function ScoreProvenance() {
   const colors = useTheme();
@@ -88,6 +143,7 @@ function ScoreProvenance() {
 export default function Dashboard() {
   const { search } = useLocation();
   const { position } = useMemo(() => resolveWalletState(search), [search]);
+  const [repayOpen, setRepayOpen] = useState(false);
 
   const hasBorrower = position.scored;
   const lending = position.lending;
@@ -108,6 +164,7 @@ export default function Dashboard() {
             {/* What do I hold? */}
             <PositionsDeck position={position} />
             {hasBorrower && <ScoreProvenance />}
+            {hasBorrower && <LoanActions onRepay={() => setRepayOpen(true)} />}
 
             {/* How did I get here? One plot, three subjects. */}
             <div className="mb-4">
@@ -125,6 +182,8 @@ export default function Dashboard() {
 
         {active && <ActivityList />}
       </div>
+
+      {repayOpen && <RepayDialog onClose={() => setRepayOpen(false)} />}
     </DashboardLayout>
   );
 }

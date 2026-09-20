@@ -29,17 +29,17 @@ export default function EmptyWalletState() {
         Nothing onchain yet
       </h2>
       <p className="font-sans text-sm max-w-sm leading-relaxed mb-8" style={{ color: colors.textSecondary }}>
-        Unora prices your collateral from your credit history, so the first step is either to
-        start building one or to earn from the pools.
+        Unora prices your collateral from your credit history. Verify a payout to get your
+        score, or earn from the pools while you build history.
       </p>
 
       <div className="flex flex-col sm:flex-row items-center gap-3">
         <Link
-          to="/borrow"
+          to="/get-scored"
           className="inline-flex items-center gap-2 px-7 py-3 font-sans text-sm font-medium rounded-full transition-all duration-300 hover:opacity-90 shadow-lg"
           style={{ backgroundColor: '#7C3AED', color: 'white' }}
         >
-          Borrow with less
+          Get scored
         </Link>
         <Link
           to="/lend"
