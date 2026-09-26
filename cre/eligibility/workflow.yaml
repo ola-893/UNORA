@@ -1,0 +1,16 @@
+fixture:
+  user-workflow:
+    workflow-name: proofline-eligibility-fixture
+    deployment-registry: private
+  workflow-artifacts:
+    workflow-path: ./main.ts
+    config-path: ./config.fixture.json
+    secrets-path: ../secrets.yaml
+monad-testnet:
+  user-workflow:
+    workflow-name: proofline-eligibility-testnet
+    deployment-registry: private
+  workflow-artifacts:
+    workflow-path: ./main.ts
+    config-path: ./config.monad.local.json
+    secrets-path: ../secrets.yaml

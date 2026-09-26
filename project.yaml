@@ -1,0 +1,6 @@
+fixture:
+  rpcs: []
+monad-testnet:
+  rpcs:
+    - chain-name: monad-testnet
+      url: ${MONAD_TESTNET_RPC_URL}

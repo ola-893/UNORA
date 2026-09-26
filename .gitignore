@@ -11,3 +11,7 @@ contracts/broadcast/
 node_modules/
 indexer/generated/
 indexer/config.yaml
+cre/eligibility/config.monad.local.json
+cre/eligibility/*.wasm
+cre/eligibility/*.wasm.br
+cre/eligibility/*.js

@@ -1,0 +1,12 @@
+{
+  "chainId": 10143,
+  "registry": "0x1111111111111111111111111111111111111111",
+  "receiver": "0x0000000000000000000000000000000000000000",
+  "providerId": "SYNTHETIC-NOT-RECLAIM",
+  "providerVersion": "fixture-v1",
+  "allowFixtures": true,
+  "allowTestMode": true,
+  "verifierUrl": "http://127.0.0.1:8788",
+  "authorizedEVMAddress": "",
+  "writeReport": false
+}

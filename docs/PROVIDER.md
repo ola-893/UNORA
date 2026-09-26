@@ -1,4 +1,6 @@
-# Stripe payout provider requirements — milestone 2 input
+# Stripe payout provider requirements
+
+The verifier/session adapter is now implemented; see [the eligibility runbook](ELIGIBILITY.md) for the exact extracted-field schema, reviewed content-hash pins, and API. A compatible provider and authentic fixture are still outstanding. The requirements below remain provider-review gates, not claims that a deployed Stripe provider satisfies them.
 
 You need a **provider ID and its pinned version** in addition to the Reclaim app ID and secret. No compatible Stripe provider has yet been selected or tested for this project. Reuse a provider only if its authenticated data and extraction satisfy this specification; otherwise create a custom one in the Reclaim developer tooling.
 

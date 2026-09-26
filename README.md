@@ -1,6 +1,10 @@
 # ProofLine
 
-Verified off-chain financial facts as reusable on-chain credentials. This directory implements the local contract demo and v2 additions: root-controlled oracle rotation, shared borrower repayment budgets, a reusable auto-repay component, corrected Envio event configuration, and ERC-8004 oracle registration/reconciliation. Reclaim verification, the CRE workflow, a running indexer, and the full Mera frontend are not connected yet. Nothing has been deployed to Monad by this project.
+Verified off-chain financial facts as reusable on-chain credentials. The original synthetic manual demo is deployed on Monad testnet. This directory now also includes an evidence-backed mode, Reclaim verification adapter, persistent session service, CRE workflow, pinned receiver, account deduplication and debt-preserving wallet migration. **Authentic payout verification and CRE-to-Monad delivery are not yet demonstrated.** The full Mera frontend and running indexer remain separate work.
+
+## Evidence-backed workflow (new)
+
+See [implementation, trust boundaries and runbook](docs/ELIGIBILITY.md). Run `npm run eligibility:demo` for the disposable local-chain synthetic lifecycle demo, `npm run cre:test` for SDK capability tests, and `npm run cre:compile` to build WASM. The original deployments are unchanged; evidence mode needs fresh contracts. Missing provider inputs and CLI authentication status are documented in the runbook.
 
 ## Run it locally
 
@@ -72,7 +76,7 @@ The Monad testnet deployment is recorded in [deployments/monad-testnet.json](dep
 
 ## Privacy and trust boundaries
 
-The registry trusts its writer. Milestone 1 does not verify a TLS session, income, wallet ownership, or unique personhood. Consumed hashes prevent exact canonical-proof replay; they do not stop new proofs from the same Stripe account, alternate wallets, multiple accounts, or collusion. A separate account-deduplication design is needed if Sybil resistance remains a requirement.
+The registry trusts its writer. The deployed milestone-1 demo does not verify a TLS session, income, wallet ownership, or unique personhood. Its consumed hashes only prevent exact canonical-proof replay. The new evidence mode adds source-account binding and controlled wallet migration, but it still does not establish unique personhood or prevent multiple legitimate accounts/collusion.
 
 The future baseline exposes the extracted total to the off-chain verification environment and publishes the wallet, tier, source category, expiry, and proof digest. A tier still reveals a financial range. Never hash only a low-entropy amount as `proofHash`; use the validated canonical proof identifier and a versioned domain. Raw figures, proofs, sessions, and API secrets must not appear in public logs, indexer entities, or browser bundles.
 
@@ -80,4 +84,4 @@ For CRE integration, deploy a receiver adapter that validates the Chainlink forw
 
 ## Next milestone
 
-Reclaim provider selection/build and standalone proof generation remain the next core pipeline milestone. See [provider requirements](docs/PROVIDER.md) and [verified integration notes](docs/INTEGRATION-NOTES.md). Borrower ERC-8004 identities and their transfer-risk mitigation remain deferred, as requested.
+Reclaim provider selection/build and authentic proof generation remain the next integration gate. See [provider requirements](docs/PROVIDER.md), [eligibility runbook](docs/ELIGIBILITY.md), and [verified integration notes](docs/INTEGRATION-NOTES.md). Borrower ERC-8004 identities remain deferred.

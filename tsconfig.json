@@ -9,6 +9,6 @@
     "jsx": "react-jsx",
     "noEmit": true
   },
-  "include": ["oracle-identity/**/*.ts", "frontend/**/*.ts", "frontend/**/*.tsx", "tests/**/*.ts", "indexer/write-config.ts", "indexer/reducers.ts"],
+  "include": ["oracle-identity/**/*.ts", "frontend/**/*.ts", "frontend/**/*.tsx", "tests/**/*.ts", "eligibility/**/*.ts", "indexer/write-config.ts", "indexer/reducers.ts"],
   "exclude": ["node_modules", "contracts"]
 }

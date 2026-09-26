@@ -23,6 +23,7 @@ contract CreditLine is ReentrancyGuard {
     mapping(address => uint256) public borrowedOf;
     uint256 public totalCollateral;
     uint256 public totalBorrowed;
+    mapping(address => address) public migrationRequested;
 
     error InvalidConfiguration();
     error ZeroAmount();
@@ -31,6 +32,7 @@ contract CreditLine is ReentrancyGuard {
     error InsufficientCollateral();
     error ExceedsDebt();
     error UnsupportedTokenTransfer();
+    error InvalidMigration();
 
     event Deposited(address indexed borrower, uint256 amount);
     event Withdrawn(address indexed borrower, uint256 amount);
@@ -38,6 +40,8 @@ contract CreditLine is ReentrancyGuard {
     event Repaid(address indexed borrower, uint256 amount);
     event RepaidFor(address indexed payer, address indexed borrower, uint256 amount);
     event LiquidityFunded(address indexed funder, uint256 amount);
+    event MigrationRequested(address indexed previous, address indexed next);
+    event PositionMigrated(address indexed previous, address indexed next, uint256 collateral, uint256 debt);
 
     constructor(AttestationRegistry registry_, IERC20 collateralToken_, IERC20 loanToken_) {
         if (
@@ -61,7 +65,45 @@ contract CreditLine is ReentrancyGuard {
 
     /// @notice Total allowed debt, not the remaining amount available to borrow.
     function maxBorrow(address user) public view returns (uint256) {
-        return Math.mulDiv(collateralOf[user], ltvBps(user), 10_000);
+        return _limit(user, collateralOf[user]);
+    }
+
+    function _limit(address user, uint256 collateral) private view returns (uint256) {
+        uint256 limit = Math.mulDiv(collateral, ltvBps(user), 10_000);
+        if (
+            registry.evidenceMode()
+                && (IERC20Metadata(address(loanToken)).decimals() != 6
+                    || registry.positionController() != address(this))
+        ) {
+            revert InvalidConfiguration();
+        }
+        return registry.evidenceMode() ? Math.min(limit, registry.eligibilityCeiling(user)) : limit;
+    }
+
+    /// @notice Old wallet authorizes a destination; address(0) cancels. New wallet must accept.
+    function requestMigration(address next) external {
+        if (
+            !registry.evidenceMode() || registry.sourceOf(msg.sender) == bytes32(0)
+                || registry.retiredWallet(msg.sender) || next == msg.sender
+        ) revert InvalidMigration();
+        migrationRequested[msg.sender] = next;
+        emit MigrationRequested(msg.sender, next);
+    }
+
+    function acceptMigration(address previous) external nonReentrant {
+        if (
+            migrationRequested[previous] != msg.sender || collateralOf[msg.sender] != 0
+                || borrowedOf[msg.sender] != 0
+        ) revert InvalidMigration();
+        registry.migrateSubject(previous, msg.sender);
+        uint256 collateral = collateralOf[previous];
+        uint256 debt = borrowedOf[previous];
+        collateralOf[msg.sender] = collateral;
+        borrowedOf[msg.sender] = debt;
+        delete collateralOf[previous];
+        delete borrowedOf[previous];
+        delete migrationRequested[previous];
+        emit PositionMigrated(previous, msg.sender, collateral, debt);
     }
 
     function availableToBorrow(address user) external view returns (uint256) {
@@ -119,7 +161,7 @@ contract CreditLine is ReentrancyGuard {
         uint256 collateral = collateralOf[msg.sender];
         if (amount > collateral) revert InsufficientCollateral();
         uint256 remaining = collateral - amount;
-        if (borrowedOf[msg.sender] > Math.mulDiv(remaining, ltvBps(msg.sender), 10_000)) {
+        if (borrowedOf[msg.sender] > _limit(msg.sender, remaining)) {
             revert ExceedsLimit();
         }
         collateralOf[msg.sender] = remaining;
