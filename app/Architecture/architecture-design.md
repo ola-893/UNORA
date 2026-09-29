@@ -1,137 +1,256 @@
 # Unora — Architecture Design
-### Undercollateralized Lending Protocol · Monad Metropolis Hackathon — Track 01 (Onchain Finance & Trading), Hint 3
 
----
+## Evidence-backed credit on Monad: implemented system and target architecture
 
-## 0. Product
+Updated: 28 September 2026. Reviewed against commit `9e16c6e` and the matching `origin/main` head. This is a code/deployment-record review, not a fresh live-chain or browser acceptance test.
 
-**Name:** Unora
-**Tagline direction:** credit-scored, undercollateralized lending on Monad — trust that's earned, not assumed.
+Unora is the product. **ProofLine is its evidence, eligibility and credit-control subsystem**, not a separate competing application. The long-term goal remains undercollateralized lending; the implemented prototype is a **test-token, overcollateralized credit line** with evidence-dependent limits. It does not yet implement the original tranche, sponsor-loss or streaming-credit model.
 
-The name and mark carry through the product as the umbrella brand for the pieces already designed in this document: the `ScoreRegistry` soulbound NFT, the `SponsorGraph`, and the `LendingPool`/`StreamManager` are all Unora-branded components of one protocol, not separate products.
+Status labels throughout:
 
----
+- **Recorded testnet deployment:** addresses and successful historical transactions are recorded in the repository; not a claim of a current healthy service.
+- **Implemented / local-tested:** code and automated/local tests exist, but the complete public-network integration is not demonstrated.
+- **Frontend integration:** contract calls or provider wiring exist in the app; this does not imply browser acceptance testing is complete.
+- **Preview / planned:** simulated UI or an architectural requirement, not an operational backend.
 
-## 1. System Overview
+The prioritized completion checklist is [ARCHITECTURE-CHECKLIST.md](../../docs/ARCHITECTURE-CHECKLIST.md).
 
-The product has five functional layers. Each layer maps to a stage in the original pipeline (scan → score → loan → repay → rescoring), with the sponsor/vouching and velocity-cap logic woven into layers 2 and 3 to solve the Sybil/rug-attack gap.
+## 1. Current system diagram
 
+Solid arrows describe implemented interfaces. Dashed arrows are missing integrations, deployment-dependent delivery, or planned services. Nodes explicitly distinguish code from recorded deployments: a continuous-looking path is not evidence that the whole flow has run successfully.
+
+```mermaid
+flowchart TB
+  subgraph UX[Unora application]
+    Wallet["Privy email / external wallet\nFrontend integration"]
+    App["React + wagmi / viem\nDashboard reads, faucet, direct repayment"]
+    Preview["Get scored, borrow, lend, sponsor graph\nPreview flows; integration pending"]
+    Wallet --> App
+    App --- Preview
+  end
+
+  subgraph Evidence[ProofLine evidence and policy - implemented, local-tested]
+    API["Wallet-signed sessions\nLoopback verifier API"]
+    Reclaim["Pinned Reclaim verification adapter\nAuthentic provider / proof still needed"]
+    Store["SQLite sessions + immutable receipts\nHMAC source pseudonym"]
+    CRE["CRE: HTTP facts → versioned policy → report\nWASM built; CLI end-to-end unverified"]
+    API --> Reclaim --> Store
+    Store -->|Bearer-authenticated facts| CRE
+  end
+
+  subgraph NewChain[Fresh evidence-mode contracts - local-tested, not deployed]
+    Transport["CRE forwarder\nSimulation or authenticated DON"]
+    Receiver["Choose one receiver\nStrict workflow pins OR test-only digest approval"]
+    Registry["AttestationRegistry\nSource binding, replay guards, expiry, ceiling"]
+    Credit["CreditLine\nCollateral, debt, limits, two-wallet migration"]
+    Vault["RepaymentVault\nOpt-in budget + capped agent grants"]
+    Transport --> Receiver --> Registry
+    Registry -->|Eligibility / designated credit line| Credit
+    Vault -->|repayFor with loan tokens| Credit
+  end
+
+  subgraph Existing[Existing Monad testnet deployment - synthetic manual demo]
+    Legacy["Registry + CreditLine + RepaymentVault\npCOL / pUSD tokens; original contract version"]
+  end
+
+  subgraph Ops[Operations and read models]
+    Root["Root controller\nRotate / revoke oracle writer"]
+    Identity["ERC-8004 oracle service identity\nSynchronizer + watcher; fork-tested"]
+    Indexer["Envio ABI-to-config generator exists\nHandlers / GraphQL service pending"]
+  end
+
+  Preview -.->|Reclaim UI wiring pending| API
+  CRE -.->|CLI broadcast / deployment pending| Transport
+  App -->|Current configured addresses| Legacy
+  App -.->|Fresh manifest + evidence UX pending| Credit
+  Root --> Registry
+  Registry -->|Read writer state / rotation events| Identity
+  Registry -.->|New event coverage pending| Indexer
+  Credit -.-> Indexer
+  Vault -.-> Indexer
+  Indexer -.->|Real activity / history queries| App
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                          FRONTEND (dApp)                             │
-│  Wallet connect → Dashboard → Borrow flow → Lend flow → Sponsor UI   │
-└───────────────────────────────┬───────────────────────────────────────┘
-                                 │  (wagmi/viem + REST/GraphQL)
-┌───────────────────────────────▼───────────────────────────────────────┐
-│                        BACKEND / OFFCHAIN SERVICES                   │
-│  Indexer → Scoring Engine → Oracle Relay → API Layer → Job Scheduler │
-└───────────────────────────────┬───────────────────────────────────────┘
-                                 │  (Chainlink CRE / signed attestations)
-┌───────────────────────────────▼───────────────────────────────────────┐
-│                       ONCHAIN CONTRACTS (Monad EVM)                  │
-│  ScoreRegistry (SBT) → LendingPool → StreamManager → SponsorGraph    │
-└─────────────────────────────────────────────────────────────────────┘
+
+There are **two contract generations**, not one upgraded deployment. The old five-contract testnet manifest is in [deployments/monad-testnet.json](../../deployments/monad-testnet.json). The app still uses those addresses. Evidence-mode changes require a fresh deployment; modifying Solidity source does not upgrade those old contracts.
+
+## 2. What changed from the original design
+
+| Original concept | What actually exists now | What remains |
+| --- | --- | --- |
+| `ScoreRegistry` soulbound NFT | `AttestationRegistry`: address-indexed credentials and eligibility reports; no NFT | Decide whether an NFT wrapper is useful; do not represent it as implemented |
+| Scoring engine | Deterministic verified-payout tier/ceiling policy | Behavioral scoring, repayment-based growth and calibrated underwriting |
+| CRE oracle relay | Workflow fetches verifier facts, applies policy, produces EVM report; two receiver designs | Authentic proof, successful CLI execution and public testnet receipt |
+| `LendingPool` with tranches | `CreditLine` with separate demo-token liquidity, deposit/borrow/repay/withdraw | LP shares, redemption, rates, tranches, asset valuation, loss allocation |
+| `StreamManager` | `RepaymentVault` with borrower-funded, revocable agent budgets | Scheduler, installment/default semantics; continuous streams only if retained |
+| `SponsorGraph` | Frontend graph with sample data | Contract capacity reservation, consent, exposure and default-loss enforcement |
+| `ReservePool` | Not implemented | Funding source, reserves, insolvency rules and payout waterfall |
+| Cross-chain Envio indexer | ABI-derived Monad event configuration generator | Entities, handlers, GraphQL, reorg handling and cross-chain adapters |
+| Wallet onboarding | Privy email/external-wallet integration | Browser acceptance tests; Mera/passkey root remains a separate optional integration |
+| Oracle accountability | Root-controlled writer rotation and ERC-8004 service identity tooling | Hosted status service, live registration and operated reconciliation |
+| Privacy / Unlink | Minimized onchain report; plaintext verification offchain | No Unlink integration or confidential/ZK financial computation in this repository |
+
+## 3. ProofLine: evidence → eligibility → credit
+
+### 3.1 Session and verification service
+
+[eligibility/server.ts](../../eligibility/server.ts) exposes a loopback-only service:
+
+1. `POST /sessions`: creates a server session and an exact signing challenge.
+2. `POST /sessions/:id/authorize`: verifies the borrower's EIP-191 wallet signature and creates the Reclaim request.
+3. `POST /sessions/:id/proof`: verifies one proof, validates policy inputs, persists consumption and returns a receipt ID.
+4. `GET /facts/:receiptId`: bearer-authenticated, immutable normalized facts for CRE retries.
+
+The signed challenge binds the wallet, application, provider/version, server session, destination chain/registry and validity window. The Reclaim adapter requires reviewed content hashes, cryptographic verification and TEE-attestation verification; it checks the Reclaim session/application context before normalization. SDK operations use bounded child processes and suppress potentially sensitive SDK output.
+
+SQLite persists session authorization, proof/session consumption and receipts across restarts. An HMAC source pseudonym is stable across wallets, proof refreshes and provider versions; test/live data use distinct namespaces. Preserve the source secret and application namespace: changing them can create new identities for the same account.
+
+**Integration gate:** no reviewed, compatible Stripe payout provider or genuine accepted proof is recorded. The adapter is implemented, not an established working Stripe integration. The provider must prove a complete authenticated 90-day window of paid USD payouts, not a user-supplied aggregate. Payouts are not synonymous with income, revenue or future ability to repay. See [provider requirements](../../docs/PROVIDER.md).
+
+### 3.2 CRE's exact role and trust boundary
+
+[cre/eligibility/workflow.ts](../../cre/eligibility/workflow.ts) accepts an opaque receipt ID, fetches facts from the configured verifier using a secret bearer token, requests identical-result aggregation, evaluates the shared deterministic policy, ABI-encodes a report and optionally calls the EVM write capability.
+
+**Reclaim verification currently runs in our verifier, not independently inside every CRE node.** CRE nodes agreeing on the same API response does not eliminate trust in that verifier. CRE's role is policy execution and report delivery over those supplied facts, not proof of unique personhood, confidential computation or independent validation of every financial claim.
+
+The workflow compiles to WASM and has mocked capability tests. Last recorded CLI attempts on 24 September failed during authentication refresh with HTTP 500, before workflow execution. That is historical evidence, not a claim that the endpoint is still failing today. No successful CRE-to-Monad transaction is recorded.
+
+Two delivery options are implemented, with different security:
+
+| Receiver | Authentication | Status / boundary |
+| --- | --- | --- |
+| `EligibilityReceiver` | Pinned forwarder, workflow ID and owner; chain/registry checks | Local-tested. Workflow ID may start zero (delivery disabled) and be pinned once by the root after final configuration |
+| `SimulationEligibilityReceiver` | Pinned mock forwarder plus operator approval of each exact report digest, consumed on acceptance | Test-only; constructor permits Anvil/Monad testnet. Ignores unauthenticated simulation metadata; not DON security |
+
+The registry's writer is the receiver, not the generic forwarder. No paid DON has been deployed. A self-hosted writer remains possible through root-controlled rotation, but that is a centralized alternative and is not an operated fallback service today. Confirm current commercial terms separately; a quoted price is not a protocol constant.
+
+### 3.3 Versioned test policy and report
+
+Policy version: `proofline:payout-policy:v1:test-tokens` (hashed onchain). The code accepts only the configured provider/destination, complete USD facts, permitted test/live mode, a 90-day window and an observation at most one day old. CRE policy assigns expiry seven days after observation.
+
+| Verified 90-day payout total | Tier | Absolute ceiling | Collateral LTV |
+| --- | --- | --- | --- |
+| $100 to below $1,000 | 1 | 50 pUSD | 50% |
+| $1,000 to below $10,000 | 2 | 80 pUSD | 80% |
+| $10,000 and above | 3 | 120 pUSD | 80% |
+
+These are demo constants, not validated credit-risk thresholds. Below-minimum evidence is rejected; it does not automatically revoke an older valid credential.
+
+The public report contains destination chain/registry, wallet, source pseudonym, canonical proof digest, session digest, policy version, tier, observation/expiry and ceiling. It excludes raw account IDs, proof bodies and exact payout totals. The verifier sees private proof data and CRE receives normalized totals. Tiers reveal ranges, and public source IDs/wallet migrations are linkable. A private CRE deployment registry does not add confidentiality.
+
+## 4. Onchain enforcement and repayment
+
+### 4.1 Registry and source-account reuse protection
+
+The fresh registry's one-way evidence mode rejects legacy manual-attestation calls. It enforces the fixed policy/ceiling, timestamps, single-use proof and session digests, one source per wallet and one current wallet per source. New observations must be strictly newer; renewal replaces eligibility rather than adding an overlapping payout window.
+
+Source bindings persist after expiry or credential revocation. This stops the **same supported account** from obtaining parallel credit through new wallets or fresh proofs. It does not stop a person owning multiple genuine accounts, collusion, account sale, or double borrowing in unrelated protocols. Sponsor slashing and personhood are not implemented substitutes for these gaps.
+
+### 4.2 CreditLine: today's lending model
+
+For the designated evidence-mode credit line:
+
+`total debt limit = min(collateral × tier LTV, valid eligibility ceiling)`
+
+Remaining borrowing headroom is also capped by available loan-token liquidity. Invalid/expired evidence sets the borrowing ceiling to zero in evidence mode; repayment still works and debt is not erased. The legacy deployment instead returns to its base 50% LTV on expiry. Keep these behaviors distinct in the UI.
+
+Example: 100 pCOL collateral supports at most 80 pUSD of Tier 2 debt. With the demo's assumed 1:1 token value, that is **125% collateralization**, not an 80% collateral requirement. There is no production price oracle, liquidation, interest, repayment due date or default state. `fundLiquidity` is a demo contribution, not an LP investment with redemption rights. Both six-decimal tokens are freely mintable and valueless.
+
+### 4.3 Debt-preserving wallet migration
+
+The old wallet calls `requestMigration(newWallet)`; the new wallet calls `acceptMigration(oldWallet)`. Registry identity, all collateral and all debt move atomically. Destination must have no existing position/source; the old address is retired for eligibility. Migration works after expiry without renewing the credential or reducing debt.
+
+This is consensual migration, **not lost-key recovery**. Already-borrowed wallet tokens, vault budgets/grants and ERC-20 approvals do not move automatically. The user must separately close or revoke old delegations, recover unused budgets and establish new approvals/grants. No production recovery authority exists.
+
+### 4.4 Delegated repayment, not a continuous stream
+
+`RepaymentVault` holds separate pUSD budgets per borrower. Agent grants have a borrower binding, cumulative spending cap, expiry and revocation. Agent keys cannot be reassigned to another borrower. The agent can only repay that borrower's debt through the immutable `CreditLine.repayFor`; it cannot make arbitrary transfers. Anyone may also repay another borrower's debt using their own tokens directly.
+
+A reusable [AutoRepayToggle](../../frontend/components/AutoRepayToggle.tsx) performs approval, confirmed budget funding and delegation in order. It is separate from the main app; no scheduled repayment worker is running. Grants do not renew themselves, and a budget is not proof of future repayment income.
+
+## 5. Frontend: implemented integration versus preview
+
+The main application is in `app/`: React, Vite, Privy, wagmi/viem and React Query. Privy is configured for email and external wallets on Monad testnet. This replaces the original undecided “Dynamic or Privy” architecture; Mera root-account support is not integrated.
+
+| Surface | Observed implementation |
+| --- | --- |
+| Default dashboard | `useOnchainPosition` reads collateral, debt, limits, token balances, vault budget and attestation from the old testnet addresses |
+| Faucet | `FaucetButton` submits real demo-token mint calls |
+| Direct repayment | `RepayDialog` has a live approval/repay/receipt flow and a separate simulated mode |
+| Get scored | Timed simulated verification/mint, random transaction hash; no verifier/CRE integration. NFT/success wording exceeds backend capabilities |
+| Borrow flow | Simulated collateral confirmation and transaction hash; not a live `CreditLine` borrow UI |
+| Lend/deposit/withdraw | Product previews; tranche deposits and withdrawals are not backed by a LendingPool |
+| Sponsor graph, score ladder, markets | Sample data and planned product mechanics |
+| Activity feed | Timer-generated sample events, not Envio events |
+| Dashboard `?state=` views | Explicit product-demo scenarios rather than wallet state |
+| Auto-repay and wallet migration | Backend/component support exists; main-app integration pending |
+
+The app currently hardcodes the five old deployment addresses in `app/src/lib/onchain.ts`. Replace that with a checked deployment manifest before enabling new evidence-mode features. Never treat preview transaction hashes, advertised market yields or “USDC live” labels in fixture data as proof of a deployed pool.
+
+## 6. Operational services and accountability
+
+- **Root control:** immutable root can rotate/revoke the oracle writer. Writer revocation prevents new writes; it does not automatically invalidate every existing credential. Root compromise remains a major trust assumption.
+- **ERC-8004 oracle identity:** registration, consent handling and reconciliation tooling keep one service identity across writer rotation. The watcher checks current state and rotation events. Local-fork tests exist; the recorded fork transactions are not public testnet registration. An HTTPS status endpoint and operated signer/watcher remain pending. This is oracle identity, not borrower personhood.
+- **Envio:** the generator uses compiled ABIs for registry, credit-line and vault events. New eligibility/migration events are not yet in its allowlist. Entity schema, handlers, database and GraphQL service are absent; direct RPC reads currently bypass this missing layer.
+- **API:** the implemented API is the narrow evidence/session service, not the original general score/loan-offer/sponsor GraphQL API.
+- **Scheduler:** no operated auto-repay, rescoring, sponsor recalculation or reserve-health service exists. Evidence expiry is already enforced on access and does not require a cron transaction.
+
+## 7. Target architecture still to build
+
+This diagram preserves the original full-product ambition without presenting it as delivered. Exact economics and interfaces require specification before implementation.
+
+```mermaid
+flowchart TB
+  Facts["ProofLine verified facts + eligibility\nImplemented subsystem; integration gates remain"]
+  History["Cross-chain history and liabilities\nPlanned indexer adapters"]
+  Sponsors["SponsorGraph + funded loss backing\nPlanned; frontend preview only"]
+  Risk["Risk engine + velocity / aggregate exposure caps\nPlanned"]
+  Report["Versioned policy report through CRE\nWorkflow foundation implemented"]
+  Terms["Registry / per-loan terms\nExtend current eligibility model"]
+  Pool["LendingPool + LP accounting / tranches\nPlanned"]
+  Repayment["Repayment schedule / optional streams\nVault foundation exists; scheduler pending"]
+  Default["Default, collateral recovery and loss accounting\nPlanned"]
+  Reserve["ReservePool + loss waterfall\nPlanned"]
+  Facts -.-> Risk
+  History -.-> Risk
+  Sponsors -.-> Risk
+  Risk -.-> Report
+  Report -.-> Terms
+  Terms -.-> Pool
+  Pool -.-> Repayment
+  Repayment -.->|Missed-payment rules| Default
+  Default -.->|Enforce reserved sponsor exposure| Sponsors
+  Default -.-> Reserve
+  Reserve -.->|Defined loss allocation| Pool
+  Repayment -.->|Verified repayment history| History
 ```
 
----
+The original `max(prior loan × multiplier, sponsor capacity)` formula is not implemented and should not be treated as a proven Sybil defense. Specify aggregate outstanding exposure, genuinely reserved sponsor capacity, recycling/collusion defenses and who bears losses before adopting a formula. Small successful loans alone do not establish safety for a much larger unsecured one.
 
-## 2. Backend Architecture
+An optional score NFT should not become an independent transferable path around source/debt binding. Unlink can remain a separate privacy research track; no integration is shown because none exists here. Any future private identity representation must preserve anti-replay, account-use and debt-continuity invariants. Hiding linkability is not itself a credit-risk solution.
 
-### 2.1 Indexer Layer — "Cross-chain scan"
-- **Tool:** Envio (HyperIndex) — indexes the borrower's transaction history across supported chains (Monad + a couple of EVM chains for cross-chain liability detection).
-- **What it pulls per wallet:** supply/borrow events, liquidation events, repayment timeliness, wallet age, existing open debt positions on other protocols.
-- **Output:** a normalized "wallet activity record" written to a Postgres/ClickHouse store, refreshed on a schedule (cron) and on-demand when a borrower initiates a new loan request.
-- **Sponsor bounty fit:** Envio ($1,000 "Best Use of Envio").
+## 8. Completion boundary and recommended scope
 
-### 2.2 Scoring Engine — "Credit score" (with the fix applied)
-A service (Node/Python) that computes, per wallet:
-1. **Raw behavior score** — repayment history, collateral stability, liquidation count, wallet age. (Standard part, same as Cred Protocol/Spectral style scoring.)
-2. **Sponsor graph weight** — pulls the wallet's position in the on-chain SponsorGraph (see 3.4) to see if it has an active sponsor and how much of the sponsor's capacity has been delegated.
-3. **Velocity cap** — computes the maximum new loan size this wallet is allowed to request this cycle: `max(prior_proven_loan_size * cap_multiplier, sponsor_delegated_capacity)`. This is the actual fix for the "farm small loans, then default big" attack.
-4. **Collateral ratio output** — a number between (e.g.) 20%–80% required collateral, derived from the above three inputs. New/unsponsored wallets land near the top of that range; long-tenured or sponsored wallets land near the bottom. Nobody gets 0%.
-- **Nansen AI integration:** used to enrich wallet labels (is this address linked to a known entity, exchange, mixer, etc.) as an extra fraud-risk signal feeding into the raw behavior score.
-- **Sponsor bounty fit:** Nansen AI ($5,000), Perpl ("Best Analytics / Risk Tool," $5,000/$3,000).
-- **Output:** a signed attestation (score, collateral ratio, loan ceiling, timestamp) ready to be relayed onchain.
+**Hackathon vertical slice:** one authenticated source → wallet-bound proof → CRE local simulation → mined Monad testnet eligibility → actual collateral/borrow/repay → account-reuse rejection → debt-preserving migration. Show clearly that simulation/operator approval is not a live DON. Finish this before adding more sponsor integrations.
 
-### 2.3 Oracle Relay — getting the score onchain
-- **Tool:** Chainlink CRE (Compute/Runtime Environment) — runs the scoring computation (or at least verifies/relays it) so the result arriving onchain isn't just "trust our backend blindly." This is the credibility layer judges will care about.
-- **Flow:** Scoring Engine computes → CRE workflow validates/signs → result written to `ScoreRegistry` contract via a Chainlink-triggered transaction.
-- **Sponsor bounty fit:** Chainlink ($3,000, "Best workflow with CRE").
+**Original full architecture:** additionally requires real risk/velocity policies, sponsor loss backing, an LP pool and redemption model, loan schedules/defaults, reserves and live indexed history. These are substantive missing systems, not cosmetic final tasks.
 
-### 2.4 API Layer
-- REST/GraphQL API serving the frontend: wallet score lookup, loan offers, sponsor graph queries, active loan/repayment stream status.
-- Auth via wallet signature (SIWE-style), no separate login system needed.
+**Real-money readiness:** a separate security/economic/operational acceptance gate; none of the current tests qualifies this prototype for real funds.
 
-### 2.5 Job Scheduler
-- Cron jobs: rescoring after each repayment stream tick, sponsor-capacity recalculation after a default, reserve-pool health checks.
+## 9. Evidence and integration map
 
----
+| Integration | Current evidence | Do not claim |
+| --- | --- | --- |
+| Monad | Old synthetic five-contract testnet manifest; local evidence-mode tests | New receivers or evidence mode already deployed |
+| Chainlink CRE | Workflow source, WASM compilation, five mocked capability tests | Paid DON deployment or successful authentic CLI-to-chain delivery |
+| Reclaim | Pinned verification/session adapter and binding tests | Genuine Stripe integration completed |
+| Privy | Main-app provider and wallet hooks | Mera/passkey governance or browser E2E acceptance |
+| Envio | Event-config generator and test | Running indexer, GraphQL or cross-chain debt detection |
+| ERC-8004 / agent0 | Oracle registration/watcher and local-fork record | Borrower identity uniqueness or live service registration |
+| Nansen / Perpl / Dynamic / Unlink | No implemented integration found in reviewed runtime paths | Active use, bounty eligibility or completed privacy guarantees |
+| Alchemy | Configurable RPC can use a supplied endpoint | A dedicated integration demonstrated by a generic RPC URL |
 
-## 3. Onchain Contract Architecture (Monad)
+Old bounty amounts/eligibility assertions are intentionally not repeated: confirm the actual submission rules separately.
 
-### 3.1 `ScoreRegistry` (Soulbound NFT)
-- One non-transferable NFT per wallet.
-- Stores: current score, current collateral-ratio tier, loan ceiling, sponsor address (if any), list of wallets this address has sponsored.
-- Updated only by the Chainlink CRE relay (access-controlled).
+Last recorded checks from the implementation/push work: 52 Solidity tests, 15 TypeScript tests, five CRE capability tests, successful typechecking/WASM compilation and a synthetic local lending lifecycle. These are not an authentic proof, live DON, frontend E2E or security audit.
 
-### 3.2 `LendingPool` (tranche pool)
-- Lenders deposit into tranches (e.g., senior/junior) — standard pooled-liquidity pattern, same shape as Aave/Goldfinch.
-- On a borrow request: reads `ScoreRegistry` for the wallet's collateral ratio + loan ceiling, requires the borrower to lock that percentage in collateral, then releases the loan.
-- Interest rate is tiered by score (worse score → higher rate, feeds the tranche yield).
-
-### 3.3 `StreamManager` (repayment stream)
-- Handles the continuous micro-payment repayment (Sablier-style token streaming, or a simplified custom stream contract).
-- On each successful stream tick, emits an event the backend picks up to update the score positively.
-- If a stream stalls/stops (missed payment), emits a default-flag event immediately — this is what makes early-detection real, rather than waiting for a lump-sum due date.
-
-### 3.4 `SponsorGraph`
-- Tracks vouching relationships: sponsor address → delegated capacity → sponsored wallet.
-- On sponsored-wallet default: automatically slashes the sponsor's own available capacity (and optionally a staked bond) proportional to the loss. This is the contract-level enforcement of "your friend's trust is now on the line."
-- Exposes a `getEffectiveCeiling(wallet)` view function the scoring engine and LendingPool both call.
-
-### 3.5 `ReservePool`
-- A cut of each repayment stream flows here as a default buffer.
-- Pays out to the tranche pool's senior lenders first in the event of a shortfall, protecting the most risk-averse capital.
-
----
-
-## 4. Frontend Architecture
-
-### 4.1 Stack
-- React + wagmi/viem for wallet connection and contract reads/writes.
-- Dynamic or Privy for wallet onboarding/embedded wallets (both are sponsor bounties: Dynamic $5,000, Privy $5,000) — lets non-crypto-native users onboard without needing a seed phrase already in their pocket.
-
-### 4.2 Key Screens
-1. **Dashboard** — shows the user's current score, soulbound NFT, current collateral tier, loan ceiling, and sponsor relationships (who they've sponsored / who sponsors them).
-2. **Borrow flow** — request a loan → see calculated collateral requirement live (driven by the scoring engine's output) → lock collateral → receive funds → see the live repayment-stream progress bar.
-3. **Lend flow** — deposit into a tranche, see projected yield by tranche risk tier, see pool utilization and reserve health.
-4. **Sponsor flow** — a distinctive feature screen: a user with proven history can browse/invite a new wallet to sponsor, see exactly how much of their own capacity they're delegating, and see real-time exposure if the sponsored wallet is underperforming.
-5. **Transparency/graph view** — a visual (force-directed graph) of the sponsor network, good for a hackathon demo — literally shows judges "here's how Sybil resistance works" without words.
-
-### 4.3 Data flow example — a new user requesting a loan
-1. Frontend requests wallet's current score/ceiling from the API (backed by the last CRE-relayed onchain value).
-2. If no sponsor and thin history → API returns a low ceiling + high collateral ratio.
-3. User either (a) accepts the smaller loan, or (b) taps "find a sponsor" → routes to Sponsor flow.
-4. Once sponsored, frontend re-queries `SponsorGraph.getEffectiveCeiling()` → shows updated, larger available loan.
-5. Loan executes on `LendingPool`, stream begins on `StreamManager`, dashboard updates live via event subscriptions (Envio-indexed events, polled or via websocket).
-
----
-
-## 5. Why this architecture directly answers the judges' likely objections
-- **"How do you stop Sybil wallets?"** → Velocity cap + sponsor-capacity-slashing, enforced onchain in `SponsorGraph`, not just a backend heuristic.
-- **"Isn't this just a scoring API with extra steps?"** → The score is relayed via Chainlink CRE, not blindly trusted from a backend — verifiable computation, not a black box.
-- **"What actually happens on default?"** → Concrete: stream stalls → default flag → reserve pool absorbs shortfall → sponsor capacity slashed → score updated. Every step has a contract and an event.
-- **"Is this really undercollateralized, or just marketing?"** → Yes, genuinely: collateral ratio is always < 100%, scaled from a wide range (near-full for new wallets) down to a low range (proven/sponsored wallets), never fixed at zero and never fixed at a single number for everyone.
-
----
-
-## 6. Sponsor SDK / Bounty Map (for reference)
-| Layer | Sponsor tool | Bounty |
-|---|---|---|
-| Indexing | Envio | $1,000 |
-| Wallet analytics | Nansen AI | $5,000 |
-| Oracle/compute | Chainlink CRE | $3,000 |
-| Risk/analytics tool | Perpl | $5,000 / $3,000 |
-| Wallet onboarding | Dynamic or Privy | $5,000 each |
-
-This is not exhaustive — worth checking the full sponsor list on the platform once you're inside the hackathon portal, since a couple of others (Alchemy, Zerion) could slot into the indexing/API layer too.
+Source of truth: [contracts](../../contracts/src), [evidence service](../../eligibility), [CRE workflow](../../cre/eligibility), [frontend](../src), [eligibility runbook](../../docs/ELIGIBILITY.md), [repayment](../../docs/REPAYMENT.md), [oracle identity](../../docs/ORACLE-IDENTITY.md), [indexer status](../../indexer/README.md), and [completion checklist](../../docs/ARCHITECTURE-CHECKLIST.md).
